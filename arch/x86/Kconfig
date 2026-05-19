@@ -2014,6 +2014,15 @@ config ARCH_SUPPORTS_CRASH_DUMP
 config ARCH_DEFAULT_CRASH_DUMP
 	def_bool y
 
+config CUSTOM_CRASHDUMP_NMI
+	bool "Custom crashdump PT_NOTE support"
+	depends on CRASH_DUMP
+	help
+	  Store a fixed 1 MiB custom PT_NOTE in first-kernel BSS and merge it
+	  into the standard vmcore header. CPU register capture is performed in
+	  the panic and crash CPU paths, while note finalization runs from a
+	  panic notifier.
+
 config ARCH_SUPPORTS_CRASH_HOTPLUG
 	def_bool y
 

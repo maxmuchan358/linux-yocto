@@ -26,6 +26,7 @@
 #include <linux/sched/clock.h>
 
 #include <asm/cpu_entry_area.h>
+#include <asm/crash.h>
 #include <asm/traps.h>
 #include <asm/mach_traps.h>
 #include <asm/nmi.h>
@@ -404,6 +405,11 @@ static noinstr void default_do_nmi(struct pt_regs *regs)
 			__this_cpu_write(swallow_nmi, true);
 		goto out;
 	}
+
+#ifdef CONFIG_CUSTOM_CRASHDUMP_NMI
+	custom_crashdump_save_cpu(regs, raw_smp_processor_id(),
+				 CUSTOM_CONTEXT_SOURCE_NMI);
+#endif
 
 	/*
 	 * Non-CPU-specific NMI: NMI sources can be processed on any CPU.

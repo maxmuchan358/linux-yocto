@@ -55,6 +55,9 @@ struct crash_memmap_data {
 static void kdump_nmi_callback(int cpu, struct pt_regs *regs)
 {
 	crash_save_cpu(regs, cpu);
+#ifdef CONFIG_CUSTOM_CRASHDUMP_NMI
+	custom_crashdump_save_cpu(regs, cpu, CUSTOM_CONTEXT_SOURCE_IPI);
+#endif
 
 	/*
 	 * Disable Intel PT to stop its logging
@@ -232,6 +235,68 @@ static int prepare_elf64_ram_headers_callback(struct resource *res, void *arg)
 	return 0;
 }
 
+#ifdef CONFIG_CUSTOM_CRASHDUMP_NMI
+static int append_custom_note_header(void **addr, unsigned long *sz)
+{
+	Elf64_Ehdr *ehdr = *addr;
+	Elf64_Phdr *phdrs;
+	Elf64_Phdr *phdr;
+	unsigned int phnum;
+	unsigned int insert_idx;
+	unsigned long needed_sz;
+	phys_addr_t note_paddr;
+	size_t note_size;
+	void *new_buf;
+
+	note_paddr = custom_crash_note_paddr();
+	note_size = custom_crash_note_reserved_size();
+	if (!note_paddr || !note_size)
+		return 0;
+
+	phnum = ehdr->e_phnum;
+	needed_sz = sizeof(*ehdr) + (phnum + 1) * sizeof(*phdr);
+	needed_sz = ALIGN(needed_sz, ELF_CORE_HEADER_ALIGN);
+	if (needed_sz > *sz) {
+		new_buf = vzalloc(needed_sz);
+		if (!new_buf)
+			return -ENOMEM;
+
+		memcpy(new_buf, *addr, *sz);
+		vfree(*addr);
+		*addr = new_buf;
+		*sz = needed_sz;
+		ehdr = *addr;
+	}
+
+	phdrs = (Elf64_Phdr *)(ehdr + 1);
+	for (insert_idx = 0; insert_idx < phnum; insert_idx++) {
+		if (phdrs[insert_idx].p_type != PT_NOTE)
+			break;
+	}
+
+	if (insert_idx < phnum)
+		memmove(&phdrs[insert_idx + 1], &phdrs[insert_idx],
+			(phnum - insert_idx) * sizeof(*phdr));
+
+	phdr = &phdrs[insert_idx];
+	memset(phdr, 0, sizeof(*phdr));
+	phdr->p_type = PT_NOTE;
+	phdr->p_offset = note_paddr;
+	phdr->p_paddr = note_paddr;
+	phdr->p_filesz = note_size;
+	phdr->p_memsz = note_size;
+	phdr->p_align = 4;
+	ehdr->e_phnum++;
+
+	return 0;
+}
+#else
+static int append_custom_note_header(void **addr, unsigned long *sz)
+{
+	return 0;
+}
+#endif
+
 /* Prepare elf headers. Return addr and size */
 static int prepare_elf_headers(void **addr, unsigned long *sz,
 			       unsigned long *nr_mem_ranges)
@@ -257,6 +322,8 @@ static int prepare_elf_headers(void **addr, unsigned long *sz,
 
 	/* By default prepare 64bit headers */
 	ret = crash_prepare_elf64_headers(cmem, IS_ENABLED(CONFIG_X86_64), addr, sz);
+	if (!ret)
+		ret = append_custom_note_header(addr, sz);
 
 out:
 	vfree(cmem);
