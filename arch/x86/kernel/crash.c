@@ -56,6 +56,10 @@ static void kdump_nmi_callback(int cpu, struct pt_regs *regs)
 {
 	crash_save_cpu(regs, cpu);
 
+#ifdef CONFIG_CUSTOM_CRASHDUMP_NMI
+	custom_crashdump_save_cpu(regs, cpu, CUSTOM_CONTEXT_SOURCE_IPI);
+#endif
+
 	/*
 	 * Disable Intel PT to stop its logging
 	 */
@@ -218,6 +222,14 @@ static int elf_header_exclude_ranges(struct crash_mem *cmem)
 			return ret;
 	}
 
+	if (custom_crash_note_paddr() && custom_crash_note_reserved_size()) {
+		ret = crash_exclude_mem_range(cmem, custom_crash_note_paddr(),
+					      custom_crash_note_paddr() +
+					      custom_crash_note_reserved_size() - 1);
+		if (ret)
+			return ret;
+	}
+
 	return 0;
 }
 
@@ -231,6 +243,59 @@ static int prepare_elf64_ram_headers_callback(struct resource *res, void *arg)
 
 	return 0;
 }
+
+#ifdef CONFIG_CUSTOM_CRASHDUMP_NMI
+static int append_custom_load_header(void **addr, unsigned long *sz)
+{
+	Elf64_Ehdr *ehdr = *addr;
+	Elf64_Phdr *phdrs;
+	Elf64_Phdr *phdr;
+	unsigned int phnum;
+	unsigned long needed_sz;
+	phys_addr_t note_paddr;
+	size_t note_size;
+	void *new_buf;
+
+	note_paddr = custom_crash_note_paddr();
+	note_size = custom_crash_note_reserved_size();
+	if (!note_paddr || !note_size)
+		return 0;
+
+	phnum = ehdr->e_phnum;
+	needed_sz = sizeof(*ehdr) + (phnum + 1) * sizeof(*phdr);
+	needed_sz = ALIGN(needed_sz, ELF_CORE_HEADER_ALIGN);
+	if (needed_sz > *sz) {
+		new_buf = vzalloc(needed_sz);
+		if (!new_buf)
+			return -ENOMEM;
+
+		memcpy(new_buf, *addr, *sz);
+		vfree(*addr);
+		*addr = new_buf;
+		*sz = needed_sz;
+		ehdr = *addr;
+	}
+
+	phdrs = (Elf64_Phdr *)(ehdr + 1);
+	phdr = &phdrs[phnum];
+	memset(phdr, 0, sizeof(*phdr));
+	phdr->p_type = PT_LOAD;
+	phdr->p_offset = note_paddr;
+	phdr->p_paddr = note_paddr;
+	phdr->p_filesz = note_size;
+	phdr->p_memsz = note_size;
+	phdr->p_flags = PF_R | PF_W;
+	phdr->p_align = PAGE_SIZE;
+	ehdr->e_phnum++;
+
+	return 0;
+}
+#else
+static int append_custom_load_header(void **addr, unsigned long *sz)
+{
+	return 0;
+}
+#endif
 
 /* Prepare elf headers. Return addr and size */
 static int prepare_elf_headers(void **addr, unsigned long *sz,
@@ -257,6 +322,10 @@ static int prepare_elf_headers(void **addr, unsigned long *sz,
 
 	/* By default prepare 64bit headers */
 	ret = crash_prepare_elf64_headers(cmem, IS_ENABLED(CONFIG_X86_64), addr, sz);
+	if (!ret)
+		ret = append_custom_load_header(addr, sz);
+	if (!ret && custom_crash_note_paddr() && custom_crash_note_reserved_size())
+		(*nr_mem_ranges)++;
 
 out:
 	vfree(cmem);
@@ -372,6 +441,14 @@ int crash_setup_memmap_entries(struct kimage *image, struct boot_params *params)
 	flags = IORESOURCE_MEM;
 	walk_iomem_res_desc(IORES_DESC_RESERVED, flags, 0, -1, &cmd,
 			    memmap_entry_callback);
+	if (custom_crash_note_paddr() && custom_crash_note_reserved_size()) {
+		ei.addr = custom_crash_note_paddr();
+		ei.size = custom_crash_note_reserved_size();
+		ei.type = E820_TYPE_RESERVED;
+		ret = add_e820_entry(params, &ei);
+		if (ret)
+			goto out;
+	}
 
 	/* Add crashk_low_res region */
 	if (crashk_low_res.end) {
@@ -435,6 +512,8 @@ int crash_load_segments(struct kimage *image)
 		pnum = 2 + CONFIG_NR_CPUS_DEFAULT + CONFIG_CRASH_MAX_MEMORY_RANGES;
 	else
 		pnum += 2 + CONFIG_NR_CPUS_DEFAULT;
+	if (IS_ENABLED(CONFIG_CUSTOM_CRASHDUMP_NMI))
+		pnum++;
 
 	if (pnum < (unsigned long)PN_XNUM) {
 		kbuf.memsz = pnum * sizeof(Elf64_Phdr);
@@ -494,6 +573,8 @@ unsigned int arch_crash_get_elfcorehdr_size(void)
 
 	/* kernel_map, VMCOREINFO and maximum CPUs */
 	sz = 2 + CONFIG_NR_CPUS_DEFAULT;
+	if (IS_ENABLED(CONFIG_CUSTOM_CRASHDUMP_NMI))
+		sz++;
 	if (IS_ENABLED(CONFIG_MEMORY_HOTPLUG))
 		sz += CONFIG_CRASH_MAX_MEMORY_RANGES;
 	sz *= sizeof(Elf64_Phdr);

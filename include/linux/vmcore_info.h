@@ -33,6 +33,11 @@ extern note_buf_t __percpu *crash_notes;
 void crash_update_vmcoreinfo_safecopy(void *ptr);
 void crash_save_vmcoreinfo(void);
 void arch_crash_save_vmcoreinfo(void);
+#ifdef CONFIG_CUSTOM_CRASHDUMP_NMI
+void custom_crash_save_vmcoreinfo_late(void);
+#else
+static inline void custom_crash_save_vmcoreinfo_late(void) {}
+#endif
 __printf(1, 2)
 void vmcoreinfo_append_str(const char *fmt, ...);
 phys_addr_t paddr_vmcoreinfo_note(void);

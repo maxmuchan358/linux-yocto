@@ -82,6 +82,7 @@ void crash_save_vmcoreinfo(void)
 		vmcoreinfo_data = vmcoreinfo_data_safecopy;
 
 	vmcoreinfo_append_str("CRASHTIME=%lld\n", ktime_get_real_seconds());
+	custom_crash_save_vmcoreinfo_late();
 	update_vmcoreinfo_note();
 }
 

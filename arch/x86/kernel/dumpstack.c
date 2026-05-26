@@ -19,6 +19,7 @@
 #include <linux/sysfs.h>
 #include <linux/kasan.h>
 
+#include <asm/crash.h>
 #include <asm/cpu_entry_area.h>
 #include <asm/stacktrace.h>
 #include <asm/unwind.h>
@@ -428,6 +429,11 @@ NOKPROBE_SYMBOL(__die_header);
 
 static int __die_body(const char *str, struct pt_regs *regs, long err)
 {
+#ifdef CONFIG_CUSTOM_CRASHDUMP_NMI
+	custom_crashdump_save_cpu(regs, raw_smp_processor_id(),
+				 CUSTOM_CONTEXT_SOURCE_EXCEPTION);
+#endif
+
 	show_regs(regs);
 	print_modules();
 
