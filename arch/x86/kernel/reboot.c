@@ -24,6 +24,7 @@
 #include <asm/reboot.h>
 #include <asm/pci_x86.h>
 #include <asm/cpu.h>
+#include <asm/kdmp.h>
 #include <asm/nmi.h>
 #include <asm/smp.h>
 
@@ -850,6 +851,10 @@ int crashing_cpu = -1;
 
 #if defined(CONFIG_SMP)
 
+#ifdef CONFIG_CUSTOM_CRASHCUMP
+void (*ipi_dump_gprs)(void);
+#endif
+
 static nmi_shootdown_cb shootdown_callback;
 
 static atomic_t waiting_for_crash_ipi;
@@ -869,6 +874,12 @@ static int crash_nmi_callback(unsigned int val, struct pt_regs *regs)
 	if (cpu == crashing_cpu)
 		return NMI_HANDLED;
 	local_irq_disable();
+
+#ifdef CONFIG_CUSTOM_CRASHCUMP
+	kdmp_ipi_regs[cpu] = regs;
+	if (ipi_dump_gprs)
+		ipi_dump_gprs();
+#endif
 
 	if (shootdown_callback)
 		shootdown_callback(cpu, regs);

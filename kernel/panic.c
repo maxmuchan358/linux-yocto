@@ -59,7 +59,8 @@ static unsigned long tainted_mask =
 static int pause_on_oops;
 static int pause_on_oops_flag;
 static DEFINE_SPINLOCK(pause_on_oops_lock);
-bool crash_kexec_post_notifiers;
+bool crash_kexec_post_notifiers =
+	IS_ENABLED(CONFIG_CUSTOM_CRASHCUMP) && IS_ENABLED(CONFIG_KEXEC);
 int panic_on_warn __read_mostly;
 unsigned long panic_on_taint;
 bool panic_on_taint_nousertaint = false;
@@ -264,6 +265,10 @@ void __weak __noreturn panic_smp_self_stop(void)
 		cpu_relax();
 }
 
+#ifdef CONFIG_CUSTOM_CRASHCUMP
+void (*panic_dump_gprs)(void);
+#endif
+
 /*
  * Stop ourselves in NMI context if another CPU has already panicked. Arch code
  * may override this to prepare for crash dumping, e.g. save regs info.
@@ -432,6 +437,11 @@ void vpanic(const char *fmt, va_list args)
 	long i, i_next = 0, len;
 	int state = 0;
 	bool _crash_kexec_post_notifiers = crash_kexec_post_notifiers;
+
+#ifdef CONFIG_CUSTOM_CRASHCUMP
+	if (panic_dump_gprs)
+		panic_dump_gprs();
+#endif
 
 	if (panic_on_warn) {
 		/*

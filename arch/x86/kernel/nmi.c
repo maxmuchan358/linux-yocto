@@ -36,6 +36,11 @@
 #include <asm/microcode.h>
 #include <asm/sev.h>
 #include <asm/fred.h>
+#include <asm/kdmp.h>
+
+#ifdef CONFIG_CUSTOM_CRASHCUMP
+void (*nmi_dump_gprs)(void);
+#endif
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/nmi.h>
@@ -404,6 +409,12 @@ static noinstr void default_do_nmi(struct pt_regs *regs)
 			__this_cpu_write(swallow_nmi, true);
 		goto out;
 	}
+
+#ifdef CONFIG_CUSTOM_CRASHCUMP
+	kdmp_nmi_regs[raw_smp_processor_id()] = regs;
+	if (nmi_dump_gprs)
+		nmi_dump_gprs();
+#endif
 
 	/*
 	 * Non-CPU-specific NMI: NMI sources can be processed on any CPU.

@@ -43,6 +43,7 @@
 #include <asm/io_apic.h>
 #include <asm/kasan.h>
 #include <asm/kaslr.h>
+#include <asm/kdmp.h>
 #include <asm/mce.h>
 #include <asm/memtype.h>
 #include <asm/mtrr.h>
@@ -631,6 +632,30 @@ static void __init arch_reserve_crashkernel(void)
 	reserve_crashkernel_cma(cma_size);
 }
 
+#ifdef CONFIG_CUSTOM_CRASHCUMP
+static void __init reserve_panic_dump(void)
+{
+	unsigned long long pdmp_size = PDMP_SZ_DATA * PDMP_N_CORE;
+	unsigned long long pdmp_base;
+	unsigned long long total_mem = memblock_phys_mem_size();
+	phys_addr_t alloc_end = min_t(phys_addr_t, memblock_end_of_DRAM(), 1ULL << 32);
+
+	pdmp_base = memblock_phys_alloc_range(pdmp_size, PMD_SIZE, 0, alloc_end);
+	if (!pdmp_base) {
+		pr_info("kdmp reservation failed - no free range found\n");
+		return;
+	}
+
+	pr_info("Reserving %luMB of memory at %luMB for kdmp dynamically (System RAM: %luMB)\n",
+		(unsigned long)(pdmp_size >> 20),
+		(unsigned long)(pdmp_base >> 20),
+		(unsigned long)(total_mem >> 20));
+	kdmp_res.start = pdmp_base;
+	kdmp_res.end = pdmp_base + pdmp_size - 1;
+	insert_resource(&iomem_resource, &kdmp_res);
+}
+#endif
+
 static struct resource standard_io_resources[] = {
 	{ .name = "dma1", .start = 0x00, .end = 0x1f,
 		.flags = IORESOURCE_BUSY | IORESOURCE_IO },
@@ -1205,6 +1230,10 @@ void __init setup_arch(char **cmdline_p)
 	 * won't consume hotpluggable memory.
 	 */
 	arch_reserve_crashkernel();
+
+#ifdef CONFIG_CUSTOM_CRASHCUMP
+	reserve_panic_dump();
+#endif
 
 	if (!early_xdbc_setup_hardware())
 		early_xdbc_register_console();

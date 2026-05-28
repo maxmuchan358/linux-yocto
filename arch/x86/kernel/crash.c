@@ -41,6 +41,7 @@
 #include <asm/intel_pt.h>
 #include <asm/crash.h>
 #include <asm/cmdline.h>
+#include <asm/kdmp.h>
 #include <asm/sev.h>
 
 /* Used while preparing memory map entries for second kernel */
@@ -177,6 +178,10 @@ static struct crash_mem *fill_up_crash_elf_data(void)
 	 * (e.g. [start, 1M]), add a extra slot.
 	 */
 	nr_ranges += 3 + crashk_cma_cnt;
+#ifdef CONFIG_CUSTOM_CRASHCUMP
+	if (kdmp_res.end > kdmp_res.start)
+		nr_ranges++;
+#endif
 	cmem = vzalloc(struct_size(cmem, ranges, nr_ranges));
 	if (!cmem)
 		return NULL;
@@ -218,6 +223,14 @@ static int elf_header_exclude_ranges(struct crash_mem *cmem)
 			return ret;
 	}
 
+#ifdef CONFIG_CUSTOM_CRASHCUMP
+	if (kdmp_res.end > kdmp_res.start) {
+		ret = crash_exclude_mem_range(cmem, kdmp_res.start, kdmp_res.end);
+		if (ret)
+			return ret;
+	}
+#endif
+
 	return 0;
 }
 
@@ -231,6 +244,59 @@ static int prepare_elf64_ram_headers_callback(struct resource *res, void *arg)
 
 	return 0;
 }
+
+#ifdef CONFIG_CUSTOM_CRASHCUMP
+static int append_kdmp_load_header(void **addr, unsigned long *sz)
+{
+	Elf64_Ehdr *ehdr = *addr;
+	Elf64_Phdr *phdrs;
+	Elf64_Phdr *phdr;
+	unsigned int phnum;
+	unsigned long needed_sz;
+	phys_addr_t kdmp_paddr;
+	resource_size_t kdmp_size;
+	void *new_buf;
+
+	if (kdmp_res.end <= kdmp_res.start)
+		return 0;
+
+	kdmp_paddr = kdmp_res.start;
+	kdmp_size = resource_size(&kdmp_res);
+	phnum = ehdr->e_phnum;
+	needed_sz = sizeof(*ehdr) + (phnum + 1) * sizeof(*phdr);
+	needed_sz = ALIGN(needed_sz, ELF_CORE_HEADER_ALIGN);
+	if (needed_sz > *sz) {
+		new_buf = vzalloc(needed_sz);
+		if (!new_buf)
+			return -ENOMEM;
+
+		memcpy(new_buf, *addr, *sz);
+		vfree(*addr);
+		*addr = new_buf;
+		*sz = needed_sz;
+		ehdr = *addr;
+	}
+
+	phdrs = (Elf64_Phdr *)(ehdr + 1);
+	phdr = &phdrs[phnum];
+	memset(phdr, 0, sizeof(*phdr));
+	phdr->p_type = PT_LOAD;
+	phdr->p_offset = kdmp_paddr;
+	phdr->p_paddr = kdmp_paddr;
+	phdr->p_filesz = kdmp_size;
+	phdr->p_memsz = kdmp_size;
+	phdr->p_flags = PF_R | PF_W;
+	phdr->p_align = PAGE_SIZE;
+	ehdr->e_phnum++;
+
+	return 0;
+}
+#else
+static int append_kdmp_load_header(void **addr, unsigned long *sz)
+{
+	return 0;
+}
+#endif
 
 /* Prepare elf headers. Return addr and size */
 static int prepare_elf_headers(void **addr, unsigned long *sz,
@@ -257,6 +323,12 @@ static int prepare_elf_headers(void **addr, unsigned long *sz,
 
 	/* By default prepare 64bit headers */
 	ret = crash_prepare_elf64_headers(cmem, IS_ENABLED(CONFIG_X86_64), addr, sz);
+	if (!ret)
+		ret = append_kdmp_load_header(addr, sz);
+#ifdef CONFIG_CUSTOM_CRASHCUMP
+	if (!ret && kdmp_res.end > kdmp_res.start)
+		(*nr_mem_ranges)++;
+#endif
 
 out:
 	vfree(cmem);
