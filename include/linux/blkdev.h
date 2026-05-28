@@ -1201,6 +1201,7 @@ static inline void blk_plug_invalidate_ts(struct task_struct *tsk)
 
 int blkdev_issue_flush(struct block_device *bdev);
 long nr_blockdev_pages(void);
+bool nr_blockdev_pages_trylock(long *pages);
 #else /* CONFIG_BLOCK */
 struct blk_plug {
 };
@@ -1234,6 +1235,13 @@ static inline int blkdev_issue_flush(struct block_device *bdev)
 static inline long nr_blockdev_pages(void)
 {
 	return 0;
+}
+
+static inline bool nr_blockdev_pages_trylock(long *pages)
+{
+	if (pages)
+		*pages = 0;
+	return true;
 }
 #endif /* CONFIG_BLOCK */
 

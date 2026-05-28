@@ -317,16 +317,28 @@ static int setup_header(struct pdmp_data_t *dmpbuf)
 	/* time stamp (jiffies) */
 	head->timestamp = jiffies_64;
 	/* time information */
-	ktime_get_real_ts64(&ts);
-	head->timeval.tv_sec = ts.tv_sec;
-	head->timeval.tv_usec = ts.tv_nsec / NSEC_PER_USEC;
+	if (ktime_get_real_ts64_try(&ts)) {
+		head->timeval.tv_sec = ts.tv_sec;
+		head->timeval.tv_usec = ts.tv_nsec / NSEC_PER_USEC;
+	} else {
+		head->timeval.tv_sec = -1;
+		head->timeval.tv_usec = -1;
+	}
 	/* set data flag */
 	pdmp_set_flag(dmpbuf, PDMP_OK_HEAD);
 
 	/* sysinfo */
 	memset(&dmpbuf->sysinfo, 0xFF, sizeof(dmpbuf->sysinfo));
-	si_meminfo(&dmpbuf->sysinfo);
-	si_swapinfo(&dmpbuf->sysinfo);
+	dmpbuf->sysinfo.totalram = totalram_pages();
+	dmpbuf->sysinfo.sharedram = global_node_page_state(NR_SHMEM);
+	dmpbuf->sysinfo.freeram = global_zone_page_state(NR_FREE_PAGES);
+	if (!nr_blockdev_pages_trylock(&dmpbuf->sysinfo.bufferram))
+		dmpbuf->sysinfo.bufferram = ~0UL;
+	dmpbuf->sysinfo.totalhigh = totalhigh_pages();
+	dmpbuf->sysinfo.freehigh = nr_free_highpages();
+	dmpbuf->sysinfo.mem_unit = PAGE_SIZE;
+	if (!si_swapinfo_trylock(&dmpbuf->sysinfo))
+		dmpbuf->sysinfo.freeswap = dmpbuf->sysinfo.totalswap = ~0UL;
 	/* set data flag */
 	pdmp_set_flag(dmpbuf, PDMP_OK_STAT);
 

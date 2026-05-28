@@ -462,6 +462,7 @@ static inline long get_nr_swap_pages(void)
 }
 
 extern void si_swapinfo(struct sysinfo *);
+extern bool si_swapinfo_trylock(struct sysinfo *);
 int folio_alloc_swap(struct folio *folio, gfp_t gfp_mask);
 bool folio_free_swap(struct folio *folio);
 void put_swap_folio(struct folio *folio, swp_entry_t entry);
@@ -505,6 +506,12 @@ static inline void put_swap_device(struct swap_info_struct *si)
 
 #define si_swapinfo(val) \
 	do { (val)->freeswap = (val)->totalswap = 0; } while (0)
+
+static inline bool si_swapinfo_trylock(struct sysinfo *val)
+{
+	si_swapinfo(val);
+	return true;
+}
 #define free_folio_and_swap_cache(folio) \
 	folio_put(folio)
 #define free_pages_and_swap_cache(pages, nr) \

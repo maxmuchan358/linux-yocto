@@ -3713,6 +3713,27 @@ void si_swapinfo(struct sysinfo *val)
 	spin_unlock(&swap_lock);
 }
 
+bool si_swapinfo_trylock(struct sysinfo *val)
+{
+	unsigned int type;
+	unsigned long nr_to_be_unused = 0;
+
+	if (!spin_trylock(&swap_lock))
+		return false;
+
+	for (type = 0; type < nr_swapfiles; type++) {
+		struct swap_info_struct *si = swap_info[type];
+
+		if ((si->flags & SWP_USED) && !(si->flags & SWP_WRITEOK))
+			nr_to_be_unused += swap_usage_in_pages(si);
+	}
+	val->freeswap = atomic_long_read(&nr_swap_pages) + nr_to_be_unused;
+	val->totalswap = total_swap_pages + nr_to_be_unused;
+	spin_unlock(&swap_lock);
+
+	return true;
+}
+
 /*
  * Verify that nr swap entries are valid and increment their swap map counts.
  *

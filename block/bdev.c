@@ -526,6 +526,25 @@ long nr_blockdev_pages(void)
 	return ret;
 }
 
+bool nr_blockdev_pages_trylock(long *pages)
+{
+	struct inode *inode;
+	long ret = 0;
+
+	if (!pages)
+		return false;
+
+	if (!spin_trylock(&blockdev_superblock->s_inode_list_lock))
+		return false;
+
+	list_for_each_entry(inode, &blockdev_superblock->s_inodes, i_sb_list)
+		ret += inode->i_mapping->nrpages;
+	spin_unlock(&blockdev_superblock->s_inode_list_lock);
+
+	*pages = ret;
+	return true;
+}
+
 /**
  * bd_may_claim - test whether a block device can be claimed
  * @bdev: block device of interest

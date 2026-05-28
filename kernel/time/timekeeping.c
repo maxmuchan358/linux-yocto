@@ -811,6 +811,29 @@ void ktime_get_real_ts64(struct timespec64 *ts)
 }
 EXPORT_SYMBOL(ktime_get_real_ts64);
 
+bool ktime_get_real_ts64_try(struct timespec64 *ts)
+{
+	struct timekeeper *tk = &tk_core.timekeeper;
+	unsigned int seq;
+	u64 nsecs;
+
+	WARN_ON(timekeeping_suspended);
+
+	if (!raw_seqcount_try_begin(&tk_core.seq, seq))
+		return false;
+
+	ts->tv_sec = tk->xtime_sec;
+	nsecs = timekeeping_get_ns(&tk->tkr_mono);
+	if (read_seqcount_retry(&tk_core.seq, seq))
+		return false;
+
+	ts->tv_nsec = 0;
+	timespec64_add_ns(ts, nsecs);
+
+	return true;
+}
+EXPORT_SYMBOL(ktime_get_real_ts64_try);
+
 ktime_t ktime_get(void)
 {
 	struct timekeeper *tk = &tk_core.timekeeper;
