@@ -9,7 +9,9 @@
 
 /* local function prototypes */
 static void *kdmp_get_mmap_addr(int regid);
-static u32 kdmp_get_base_address(int baid);
+static resource_size_t kdmp_get_base_address(int baid);
+int kdmp_pci_mmcfg_read(unsigned int seg, unsigned int bdf,
+		int reg, int len, u8 *value);
 
 /**
  * base address id.
@@ -24,11 +26,12 @@ enum {
 	NET_MMIO_BASE,
 	NET_IO_BASE,
 	STOR_MMIO_BASE,
+	PCIE_MMIO_BASE,
 	BA_END,
 	BA_COUNT = BA_END,	/* count of base address id. */
 };
 /* invalid base address value definition.*/
-#define BASE_ADDR_NA		0xFFFFFFFF
+#define BASE_ADDR_NA		((resource_size_t)~0ULL)
 
 /**
  * base address list.
@@ -36,7 +39,7 @@ enum {
  */
 struct pdmp_base_addr_t {
 	int id;
-	u32 ba;
+	resource_size_t ba;
 };
 
 static struct pdmp_base_addr_t kdmp_base_addr[] = {
@@ -48,18 +51,53 @@ static struct pdmp_base_addr_t kdmp_base_addr[] = {
 	{NET_MMIO_BASE,	BASE_ADDR_NA},
 	{NET_IO_BASE,	BASE_ADDR_NA},
 	{STOR_MMIO_BASE,	BASE_ADDR_NA},
+	{PCIE_MMIO_BASE,	BASE_ADDR_NA},
 };
 int kdmp_base_addr_count = ARRAY_SIZE(kdmp_base_addr);
 
-#define BA_MEMORY_MSK	0xFFFFFFF0
-#define BA_IOPORT_MSK	0xFFFC
+#define BA_MEMORY_MSK	((resource_size_t)PCI_BASE_ADDRESS_MEM_MASK)
+#define BA_IOPORT_MSK	((resource_size_t)PCI_BASE_ADDRESS_IO_MASK)
+
+#define PCI_CONF_BUS_NUM(bdf)	(((bdf) >> 16) & 0xff)
+#define PCI_CONF_DEVFN_NUM(bdf)	(((bdf) >> 8) & 0xff)
 
 
-static u32 kdmp_get_base_address(int baid)
+static int kdmp_read_pci_bar(int regid, int offset, resource_size_t *base)
+{
+	u32 low;
+	u32 high;
+	int ret;
+
+	ret = kdmp_read_reg(regid, offset, &low, sizeof(low));
+	if (ret)
+		return ret;
+	if (low == BASE_ADDR_NA || low == 0) {
+		*base = BASE_ADDR_NA;
+		return 0;
+	}
+
+	if (low & PCI_BASE_ADDRESS_SPACE_IO) {
+		*base = low & BA_IOPORT_MSK;
+		return 0;
+	}
+
+	*base = low & BA_MEMORY_MSK;
+	if ((low & PCI_BASE_ADDRESS_MEM_TYPE_MASK) != PCI_BASE_ADDRESS_MEM_TYPE_64)
+		return 0;
+
+	ret = kdmp_read_reg(regid, offset + sizeof(u32), &high, sizeof(high));
+	if (ret)
+		return ret;
+
+	*base |= (resource_size_t)high << 32;
+	return 0;
+}
+
+static resource_size_t kdmp_get_base_address(int baid)
 {
 	int ret;
 	u32 v32;
-	u32 ba = BASE_ADDR_NA;
+	resource_size_t ba = BASE_ADDR_NA;
 
 	if (kdmp_base_addr[baid].ba != BASE_ADDR_NA)
 		return kdmp_base_addr[baid].ba;
@@ -90,38 +128,39 @@ static u32 kdmp_get_base_address(int baid)
 		break;
 	case TEST_MMIO_BASE:
 		/* custom-crashdump-test BAR0 */
-		ret = kdmp_read_reg(REG_TEST_DEV_PCI_CFG, 0x10, &v32, sizeof(v32));
-		if (ret == 0 && (v32 != BASE_ADDR_NA) && (v32 != 0))
-			ba = v32 & BA_MEMORY_MSK;
-		DBG("pdmp: TEST_MMIO_BASE:%08x v:%08x\n", ba, v32);
+		ret = kdmp_read_pci_bar(REG_TEST_DEV_PCI_CFG, 0x10, &ba);
+		DBG("pdmp: TEST_MMIO_BASE:%016llx\n", (unsigned long long)ba);
 		break;
 	case TEST_IO_BASE:
-		/* custom-crashdump-test BAR1 */
-		ret = kdmp_read_reg(REG_TEST_DEV_PCI_CFG, 0x14, &v32, sizeof(v32));
-		if (ret == 0 && (v32 != BASE_ADDR_NA) && (v32 != 0))
-			ba = v32 & BA_IOPORT_MSK;
-		DBG("pdmp: TEST_IO_BASE:%08x v:%08x\n", ba, v32);
+		/* custom-crashdump-test BAR1 or BAR2 when BAR0 is 64-bit */
+		ret = kdmp_read_reg(REG_TEST_DEV_PCI_CFG, 0x10, &v32, sizeof(v32));
+		if (ret == 0 && !(v32 & PCI_BASE_ADDRESS_SPACE_IO) &&
+		    ((v32 & PCI_BASE_ADDRESS_MEM_TYPE_MASK) == PCI_BASE_ADDRESS_MEM_TYPE_64))
+			ret = kdmp_read_pci_bar(REG_TEST_DEV_PCI_CFG, 0x18, &ba);
+		else
+			ret = kdmp_read_pci_bar(REG_TEST_DEV_PCI_CFG, 0x14, &ba);
+		DBG("pdmp: TEST_IO_BASE:%016llx low:%08x\n",
+		    (unsigned long long)ba, v32);
 		break;
 	case NET_MMIO_BASE:
 		/* custom-crashdump-net BAR0 */
-		ret = kdmp_read_reg(REG_NET_DEV_PCI_CFG, 0x10, &v32, sizeof(v32));
-		if (ret == 0 && (v32 != BASE_ADDR_NA) && (v32 != 0))
-			ba = v32 & BA_MEMORY_MSK;
-		DBG("pdmp: NET_MMIO_BASE:%08x v:%08x\n", ba, v32);
+		ret = kdmp_read_pci_bar(REG_NET_DEV_PCI_CFG, 0x10, &ba);
+		DBG("pdmp: NET_MMIO_BASE:%016llx\n", (unsigned long long)ba);
 		break;
 	case NET_IO_BASE:
 		/* custom-crashdump-net BAR1 */
-		ret = kdmp_read_reg(REG_NET_DEV_PCI_CFG, 0x14, &v32, sizeof(v32));
-		if (ret == 0 && (v32 != BASE_ADDR_NA) && (v32 != 0))
-			ba = v32 & BA_IOPORT_MSK;
-		DBG("pdmp: NET_IO_BASE:%08x v:%08x\n", ba, v32);
+		ret = kdmp_read_pci_bar(REG_NET_DEV_PCI_CFG, 0x14, &ba);
+		DBG("pdmp: NET_IO_BASE:%016llx\n", (unsigned long long)ba);
 		break;
 	case STOR_MMIO_BASE:
 		/* custom-crashdump-stor BAR0 */
-		ret = kdmp_read_reg(REG_STOR_DEV_PCI_CFG, 0x10, &v32, sizeof(v32));
-		if (ret == 0 && (v32 != BASE_ADDR_NA) && (v32 != 0))
-			ba = v32 & BA_MEMORY_MSK;
-		DBG("pdmp: STOR_MMIO_BASE:%08x v:%08x\n", ba, v32);
+		ret = kdmp_read_pci_bar(REG_STOR_DEV_PCI_CFG, 0x10, &ba);
+		DBG("pdmp: STOR_MMIO_BASE:%016llx\n", (unsigned long long)ba);
+		break;
+	case PCIE_MMIO_BASE:
+		/* custom-crashdump-pcie BAR0 (64-bit MMIO) */
+		ret = kdmp_read_pci_bar(REG_PCIE_DEV_PCI_CFG, 0x10, &ba);
+		DBG("pdmp: PCIE_MMIO_BASE:%016llx\n", (unsigned long long)ba);
 		break;
 	default:
 		return ba;
@@ -157,17 +196,19 @@ enum {
 
 /* q35 + ICH9 default topology */
 static struct pdmp_reg_def_t kdmp_reg_def[] = {
-{REG_HOST_DEV_CFG,	REG_T_PCI, BDF(0,  0, 0),	0, 0x00EC, 0},
-{REG_LPC_PCI_CFG,	REG_T_PCI, BDF(0, 31, 0),	0, 0x00F4, 0},
-{REG_SMBUS_PCI_CFG,	REG_T_PCI, BDF(0, 31, 3),	0, 0x0040, 0},
+{REG_HOST_DEV_CFG,	REG_T_PCI, BDF(0,  0, 0),	0, 0x0100, 0},
+{REG_LPC_PCI_CFG,	REG_T_PCI, BDF(0, 31, 0),	0, 0x0100, 0},
+{REG_SMBUS_PCI_CFG,	REG_T_PCI, BDF(0, 31, 3),	0, 0x0100, 0},
 {REG_TEST_DEV_PCI_CFG,	REG_T_PCI, BDF(0,  4, 0),	0, 0x0100, 0},
 {REG_NET_DEV_PCI_CFG,	REG_T_PCI, BDF(0,  5, 0),	0, 0x0100, 0},
 {REG_STOR_DEV_PCI_CFG,	REG_T_PCI, BDF(0,  6, 0),	0, 0x0100, 0},
+{REG_PCIE_DEV_PCI_CFG,	REG_T_PCI, BDF(1,  0, 0),	0, 0x0400, 0},
 {REG_TEST_DEV_MMIO,	REG_T_MM,  TEST_MMIO_BASE,	0, 0x0400, 0},
 {REG_TEST_DEV_IO,	REG_T_IO,  TEST_IO_BASE,	0, 0x0080, 0},
 {REG_NET_DEV_MMIO,	REG_T_MM,  NET_MMIO_BASE,	0, 0x0200, 0},
 {REG_NET_DEV_IO,	REG_T_IO,  NET_IO_BASE,	0, 0x0040, 0},
 {REG_STOR_DEV_MMIO,	REG_T_MM,  STOR_MMIO_BASE,	0, 0x0400, 0},
+{REG_PCIE_DEV_MMIO,	REG_T_MM,  PCIE_MMIO_BASE,	0, 0x0400, 0},
 
 {REG_DMA_IO,		REG_T_IO, FIXED,	0, 0xFFFF, 0},
 {REG_TIMER_IO,	REG_T_IO, FIXED,	0, 0xFFFF, 0},
@@ -200,13 +241,45 @@ static int pdmp_pci_iocfg_read(unsigned int seg, unsigned int bdf,
 	return 0;
 }
 
+int kdmp_pci_mmcfg_read(unsigned int seg, unsigned int bdf,
+		int reg, int len, u8 *value)
+{
+	struct pci_bus *bus;
+	unsigned int busnr;
+	unsigned int devfn;
+	int ret;
+
+	busnr = PCI_CONF_BUS_NUM(bdf);
+	devfn = PCI_CONF_DEVFN_NUM(bdf);
+	bus = pci_find_bus(seg, busnr);
+	if (!bus)
+		return -ENODEV;
+
+	switch (len) {
+	case 1:
+		ret = pci_bus_read_config_byte(bus, devfn, reg, value);
+		break;
+	case 2:
+		ret = pci_bus_read_config_word(bus, devfn, reg, (u16 *)value);
+		break;
+	case 4:
+		ret = pci_bus_read_config_dword(bus, devfn, reg, (u32 *)value);
+		break;
+	default:
+		ret = -EINVAL;
+		break;
+	}
+
+	return ret;
+}
+
 static int kdmp_pci_cfg_read(unsigned int seg, unsigned int bdf,
 		int reg, int len, u8 *value)
 {
 	if (reg < 256)
 		return pdmp_pci_iocfg_read(seg, bdf, reg, len, value);
 
-	return -EINVAL;
+	return kdmp_pci_mmcfg_read(seg, bdf, reg, len, value);
 }
 
 static int pdmp_read_pcicfg(int regid, int offset, void *buf, int size)
@@ -438,8 +511,8 @@ static void *kdmp_get_mmap_addr(int regid)
 	struct pdmp_reg_def_t *reg;
 	void *virt = NULL;
 	int baid;
-	u32 ba;
-	u32 phys;
+	resource_size_t ba;
+	phys_addr_t phys;
 
 	reg = &kdmp_reg_def[regid];
 	virt = (void *)reg->value;
@@ -456,8 +529,8 @@ static void *kdmp_get_mmap_addr(int regid)
 	virt = ioremap(phys, reg->size);
 	if (virt == NULL) {
 		printk(KERN_EMERG
-			"kdmp: %s: regid=%d addr=%08x: ioremap failure\n",
-			__func__, regid, phys);
+			"kdmp: %s: regid=%d addr=%016llx: ioremap failure\n",
+			__func__, regid, (unsigned long long)phys);
 	}
 	reg->value = (unsigned long)virt;
 	return virt;
@@ -492,13 +565,14 @@ int kdmp_conf_reg_info(void)
 	struct pdmp_reg_def_t *reg;
 	int i;
 	int n;
-	u32 ba;
+	resource_size_t ba;
 	void *mm;
 
 	/* setup base address */
 	for (i = BA_BEGIN; i < BA_END; ++i) {
 		ba = kdmp_get_base_address(i);
-		DBG("pdmp: config panicdump baid[%02d]=%08x\n", i, ba);
+		DBG("pdmp: config panicdump baid[%02d]=%016llx\n",
+		    i, (unsigned long long)ba);
 	}
 
 	/* setup virtual memory for MMIO register sets. */
