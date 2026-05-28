@@ -21,6 +21,9 @@ enum {
 	SMB_BASE,
 	TEST_MMIO_BASE,
 	TEST_IO_BASE,
+	NET_MMIO_BASE,
+	NET_IO_BASE,
+	STOR_MMIO_BASE,
 	BA_END,
 	BA_COUNT = BA_END,	/* count of base address id. */
 };
@@ -42,6 +45,9 @@ static struct pdmp_base_addr_t kdmp_base_addr[] = {
 	{SMB_BASE,	BASE_ADDR_NA},
 	{TEST_MMIO_BASE,	BASE_ADDR_NA},
 	{TEST_IO_BASE,	BASE_ADDR_NA},
+	{NET_MMIO_BASE,	BASE_ADDR_NA},
+	{NET_IO_BASE,	BASE_ADDR_NA},
+	{STOR_MMIO_BASE,	BASE_ADDR_NA},
 };
 int kdmp_base_addr_count = ARRAY_SIZE(kdmp_base_addr);
 
@@ -96,6 +102,27 @@ static u32 kdmp_get_base_address(int baid)
 			ba = v32 & BA_IOPORT_MSK;
 		DBG("pdmp: TEST_IO_BASE:%08x v:%08x\n", ba, v32);
 		break;
+	case NET_MMIO_BASE:
+		/* custom-crashdump-net BAR0 */
+		ret = kdmp_read_reg(REG_NET_DEV_PCI_CFG, 0x10, &v32, sizeof(v32));
+		if (ret == 0 && (v32 != BASE_ADDR_NA) && (v32 != 0))
+			ba = v32 & BA_MEMORY_MSK;
+		DBG("pdmp: NET_MMIO_BASE:%08x v:%08x\n", ba, v32);
+		break;
+	case NET_IO_BASE:
+		/* custom-crashdump-net BAR1 */
+		ret = kdmp_read_reg(REG_NET_DEV_PCI_CFG, 0x14, &v32, sizeof(v32));
+		if (ret == 0 && (v32 != BASE_ADDR_NA) && (v32 != 0))
+			ba = v32 & BA_IOPORT_MSK;
+		DBG("pdmp: NET_IO_BASE:%08x v:%08x\n", ba, v32);
+		break;
+	case STOR_MMIO_BASE:
+		/* custom-crashdump-stor BAR0 */
+		ret = kdmp_read_reg(REG_STOR_DEV_PCI_CFG, 0x10, &v32, sizeof(v32));
+		if (ret == 0 && (v32 != BASE_ADDR_NA) && (v32 != 0))
+			ba = v32 & BA_MEMORY_MSK;
+		DBG("pdmp: STOR_MMIO_BASE:%08x v:%08x\n", ba, v32);
+		break;
 	default:
 		return ba;
 	}
@@ -133,9 +160,14 @@ static struct pdmp_reg_def_t kdmp_reg_def[] = {
 {REG_HOST_DEV_CFG,	REG_T_PCI, BDF(0,  0, 0),	0, 0x00EC, 0},
 {REG_LPC_PCI_CFG,	REG_T_PCI, BDF(0, 31, 0),	0, 0x00F4, 0},
 {REG_SMBUS_PCI_CFG,	REG_T_PCI, BDF(0, 31, 3),	0, 0x0040, 0},
-{REG_TEST_DEV_PCI_CFG,	REG_T_PCI, BDF(0,  5, 0),	0, 0x0100, 0},
+{REG_TEST_DEV_PCI_CFG,	REG_T_PCI, BDF(0,  4, 0),	0, 0x0100, 0},
+{REG_NET_DEV_PCI_CFG,	REG_T_PCI, BDF(0,  5, 0),	0, 0x0100, 0},
+{REG_STOR_DEV_PCI_CFG,	REG_T_PCI, BDF(0,  6, 0),	0, 0x0100, 0},
 {REG_TEST_DEV_MMIO,	REG_T_MM,  TEST_MMIO_BASE,	0, 0x0400, 0},
 {REG_TEST_DEV_IO,	REG_T_IO,  TEST_IO_BASE,	0, 0x0080, 0},
+{REG_NET_DEV_MMIO,	REG_T_MM,  NET_MMIO_BASE,	0, 0x0200, 0},
+{REG_NET_DEV_IO,	REG_T_IO,  NET_IO_BASE,	0, 0x0040, 0},
+{REG_STOR_DEV_MMIO,	REG_T_MM,  STOR_MMIO_BASE,	0, 0x0400, 0},
 
 {REG_DMA_IO,		REG_T_IO, FIXED,	0, 0xFFFF, 0},
 {REG_TIMER_IO,	REG_T_IO, FIXED,	0, 0xFFFF, 0},

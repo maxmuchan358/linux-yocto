@@ -49,6 +49,7 @@ static int kdmp_printk_tail(u8 *dest, int len);
 static void kdmp_dump_gprs(int status);
 static void kdmp_dump_x86(int status);
 static unsigned long kdmp_get_sp(int status, unsigned long sp);
+static bool kdmp_local_apic_read_safe(u32 offset, u32 *value);
 static inline void pdmp_clts(void)
 {
 	asm volatile ("clts");
@@ -476,11 +477,33 @@ static int dump_local_apic(struct pdmp_data_t *dmpbuf, int status)
 	uint32_t *apic_dst = x86_regs->local_apic_regs;
 	int i;
 
-	for (i = 0; i < kdmp_localapic_defs_num; i++)
-		apic_dst[i] = apic_read(kdmp_localapic_defs[i].offset);
+	for (i = 0; i < kdmp_localapic_defs_num; i++) {
+		if (!kdmp_local_apic_read_safe(kdmp_localapic_defs[i].offset,
+					      &apic_dst[i]))
+			apic_dst[i] = 0xffffffff;
+	}
 
 	pdmp_set_flag(dmpbuf, PDMP_OK_LOCAL_APIC);
 	return 0;
+}
+
+static bool kdmp_local_apic_read_safe(u32 offset, u32 *value)
+{
+	u64 msr;
+
+	if (!value)
+		return false;
+
+	if (!x2apic_enabled()) {
+		*value = apic_read(offset);
+		return true;
+	}
+
+	if (rdmsrq_safe(APIC_BASE_MSR + (offset >> 4), &msr))
+		return false;
+
+	*value = (u32)msr;
+	return true;
 }
 
 

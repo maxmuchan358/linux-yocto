@@ -26,6 +26,8 @@ struct pdmp_reg_map_t kdmp_pcireg_map[] = {
 	{REG_LPC_PCI_CFG,	0, 0x0100, IDX_NON, 0, 0x0100},
 	{REG_SMBUS_PCI_CFG,	0, 0x0100, IDX_NON, 0, 0x0200},
 	{REG_TEST_DEV_PCI_CFG,	0, 0x0100, IDX_NON, 0, 0x0300},
+	{REG_NET_DEV_PCI_CFG,	0, 0x0100, IDX_NON, 0, 0x0400},
+	{REG_STOR_DEV_PCI_CFG,	0, 0x0100, IDX_NON, 0, 0x0500},
 };
 
 /**
@@ -125,6 +127,12 @@ struct pdmp_reg_map_t kdmp_ioreg_map[] = {
 	{REG_TEST_DEV_MMIO, 0x0000, 0x0400, IDX_NON, 0, 0x0080},
 	/* custom-crashdump-test BAR1 PIO */
 	{REG_TEST_DEV_IO, 0x0000, 0x0080, IDX_NON, 0, 0x0480},
+	/* custom-crashdump-net BAR0 MMIO */
+	{REG_NET_DEV_MMIO, 0x0000, 0x0200, IDX_NON, 0, 0x0500},
+	/* custom-crashdump-net BAR1 PIO */
+	{REG_NET_DEV_IO, 0x0000, 0x0040, IDX_NON, 0, 0x0700},
+	/* custom-crashdump-stor BAR0 MMIO */
+	{REG_STOR_DEV_MMIO, 0x0000, 0x0400, IDX_NON, 0, 0x0740},
 };
 
 #endif /* _KDMP_IOREGS_H_ */
