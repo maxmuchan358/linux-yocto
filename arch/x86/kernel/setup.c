@@ -632,7 +632,15 @@ static void __init arch_reserve_crashkernel(void)
 	reserve_crashkernel_cma(cma_size);
 }
 
-#ifdef CONFIG_CUSTOM_CRASHCUMP
+#if IS_ENABLED(CONFIG_CUSTOM_CRASHCUMP)
+struct resource kdmp_res = {
+	.name = "custom crashdump",
+	.start = 0,
+	.end = 0,
+	.flags = IORESOURCE_BUSY | IORESOURCE_MEM
+};
+EXPORT_SYMBOL_GPL(kdmp_res);
+
 static void __init reserve_panic_dump(void)
 {
 	unsigned long long pdmp_size = PDMP_SZ_DATA * PDMP_N_CORE;
@@ -1231,7 +1239,7 @@ void __init setup_arch(char **cmdline_p)
 	 */
 	arch_reserve_crashkernel();
 
-#ifdef CONFIG_CUSTOM_CRASHCUMP
+#if IS_ENABLED(CONFIG_CUSTOM_CRASHCUMP)
 	reserve_panic_dump();
 #endif
 

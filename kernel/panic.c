@@ -265,8 +265,9 @@ void __weak __noreturn panic_smp_self_stop(void)
 		cpu_relax();
 }
 
-#ifdef CONFIG_CUSTOM_CRASHCUMP
+#if IS_ENABLED(CONFIG_CUSTOM_CRASHCUMP)
 void (*panic_dump_gprs)(void);
+EXPORT_SYMBOL_GPL(panic_dump_gprs);
 #endif
 
 /*
@@ -438,7 +439,7 @@ void vpanic(const char *fmt, va_list args)
 	int state = 0;
 	bool _crash_kexec_post_notifiers = crash_kexec_post_notifiers;
 
-#ifdef CONFIG_CUSTOM_CRASHCUMP
+#if IS_ENABLED(CONFIG_CUSTOM_CRASHCUMP)
 	if (panic_dump_gprs)
 		panic_dump_gprs();
 #endif

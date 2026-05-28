@@ -38,8 +38,9 @@
 #include <asm/fred.h>
 #include <asm/kdmp.h>
 
-#ifdef CONFIG_CUSTOM_CRASHCUMP
+#if IS_ENABLED(CONFIG_CUSTOM_CRASHCUMP)
 void (*nmi_dump_gprs)(void);
+EXPORT_SYMBOL_GPL(nmi_dump_gprs);
 #endif
 
 #define CREATE_TRACE_POINTS
@@ -410,7 +411,7 @@ static noinstr void default_do_nmi(struct pt_regs *regs)
 		goto out;
 	}
 
-#ifdef CONFIG_CUSTOM_CRASHCUMP
+#if IS_ENABLED(CONFIG_CUSTOM_CRASHCUMP)
 	kdmp_nmi_regs[raw_smp_processor_id()] = regs;
 	if (nmi_dump_gprs)
 		nmi_dump_gprs();

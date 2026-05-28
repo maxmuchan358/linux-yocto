@@ -52,13 +52,6 @@ static int kdmp_panicdump(struct notifier_block *this,
 
 /* panic dump output (virtual addresses by ioremap()) */
 void *kdmp_buf[PDMP_N_CORE] = { NULL, NULL, NULL, NULL };
-/* Location of the reserved area for the panic dump */
-struct resource kdmp_res = {
-	.name = "custom crashdump",
-	.start = 0,
-	.end = 0,
-	.flags = IORESOURCE_BUSY | IORESOURCE_MEM
-};
 
 
 /**
@@ -82,7 +75,7 @@ static int __init kdmp_initialize(void)
 	}
 
 	/* init pointer at arch/x86/kernel/dumpstack.c */
-#ifdef CONFIG_CUSTOM_CRASHCUMP
+#if IS_ENABLED(CONFIG_CUSTOM_CRASHCUMP)
 	memset(kdmp_ecxt_regs, 0, sizeof(kdmp_ecxt_regs));
 	memset(kdmp_nmi_regs, 0, sizeof(kdmp_nmi_regs));
 	memset(kdmp_ipi_regs, 0, sizeof(kdmp_ipi_regs));
@@ -109,7 +102,6 @@ static int __init kdmp_initialize(void)
 
 	return 0;
 }
-subsys_initcall(kdmp_initialize);
 
 /**
  * configure panic dump variables.
@@ -125,6 +117,47 @@ static int __init kdmp_configure(void)
 
 	return 0;
 }
+
+#ifndef MODULE
+subsys_initcall(kdmp_initialize);
 subsys_initcall_sync(kdmp_configure);
+#else
+static int __init kdmp_module_init(void)
+{
+	int ret;
+
+	ret = kdmp_initialize();
+	if (ret)
+		return ret;
+
+	return kdmp_configure();
+}
+
+static void __exit kdmp_module_exit(void)
+{
+	int i;
+
+	kdmp_panic_ready = 0;
+	atomic_notifier_chain_unregister(&panic_notifier_list, &kdmp_panic_notifier);
+
+	for (i = 0; i < PDMP_N_CORE; i++) {
+		if (kdmp_buf[i]) {
+			iounmap(kdmp_buf[i]);
+			kdmp_buf[i] = NULL;
+		}
+	}
+
+	panic_dump_gprs = NULL;
+	nmi_dump_gprs = NULL;
+#ifdef CONFIG_SMP
+	ipi_dump_gprs = NULL;
+#endif
+}
+
+module_init(kdmp_module_init);
+module_exit(kdmp_module_exit);
+MODULE_DESCRIPTION("x86 custom crashdump support");
+MODULE_LICENSE("GPL");
+#endif
 
 /* end of kdmp_setup.c */

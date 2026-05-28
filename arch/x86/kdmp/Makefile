@@ -2,4 +2,5 @@
 # Makefile for the panic dump function.
 #
 
-obj-y				:= kdmp_setup.o kdmp_dump.o kdmp_regs.o
+obj-$(CONFIG_CUSTOM_CRASHCUMP)	:= kdmp.o
+kdmp-y			:= kdmp_setup.o kdmp_dump.o kdmp_regs.o

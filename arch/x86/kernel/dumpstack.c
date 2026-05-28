@@ -29,10 +29,13 @@ static int die_counter;
 
 static struct pt_regs exec_summary_regs;
 
-#ifdef CONFIG_CUSTOM_CRASHCUMP
+#if IS_ENABLED(CONFIG_CUSTOM_CRASHCUMP)
 struct pt_regs *kdmp_ecxt_regs[PDMP_N_CORE];
 struct pt_regs *kdmp_nmi_regs[PDMP_N_CORE];
 struct pt_regs *kdmp_ipi_regs[PDMP_N_CORE];
+EXPORT_SYMBOL_GPL(kdmp_ecxt_regs);
+EXPORT_SYMBOL_GPL(kdmp_nmi_regs);
+EXPORT_SYMBOL_GPL(kdmp_ipi_regs);
 #endif
 
 bool noinstr in_task_stack(unsigned long *stack, struct task_struct *task,
@@ -437,7 +440,7 @@ NOKPROBE_SYMBOL(__die_header);
 static int __die_body(const char *str, struct pt_regs *regs, long err)
 {
 
-#ifdef CONFIG_CUSTOM_CRASHCUMP
+#if IS_ENABLED(CONFIG_CUSTOM_CRASHCUMP)
 	kdmp_ecxt_regs[raw_smp_processor_id()] = regs;
 #endif
 

@@ -421,7 +421,7 @@ config FIX_EARLYCON_MEM
 	def_bool y
 
 config CUSTOM_CRASHCUMP
-	bool "Panic dump support"
+	tristate "Panic dump support"
 	depends on X86
 
 config DYNAMIC_PHYSICAL_MASK

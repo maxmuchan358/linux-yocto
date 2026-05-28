@@ -178,7 +178,7 @@ static struct crash_mem *fill_up_crash_elf_data(void)
 	 * (e.g. [start, 1M]), add a extra slot.
 	 */
 	nr_ranges += 3 + crashk_cma_cnt;
-#ifdef CONFIG_CUSTOM_CRASHCUMP
+#if IS_ENABLED(CONFIG_CUSTOM_CRASHCUMP)
 	if (kdmp_res.end > kdmp_res.start)
 		nr_ranges++;
 #endif
@@ -223,7 +223,7 @@ static int elf_header_exclude_ranges(struct crash_mem *cmem)
 			return ret;
 	}
 
-#ifdef CONFIG_CUSTOM_CRASHCUMP
+#if IS_ENABLED(CONFIG_CUSTOM_CRASHCUMP)
 	if (kdmp_res.end > kdmp_res.start) {
 		ret = crash_exclude_mem_range(cmem, kdmp_res.start, kdmp_res.end);
 		if (ret)
@@ -245,7 +245,7 @@ static int prepare_elf64_ram_headers_callback(struct resource *res, void *arg)
 	return 0;
 }
 
-#ifdef CONFIG_CUSTOM_CRASHCUMP
+#if IS_ENABLED(CONFIG_CUSTOM_CRASHCUMP)
 static int append_kdmp_load_header(void **addr, unsigned long *sz)
 {
 	Elf64_Ehdr *ehdr = *addr;
@@ -325,7 +325,7 @@ static int prepare_elf_headers(void **addr, unsigned long *sz,
 	ret = crash_prepare_elf64_headers(cmem, IS_ENABLED(CONFIG_X86_64), addr, sz);
 	if (!ret)
 		ret = append_kdmp_load_header(addr, sz);
-#ifdef CONFIG_CUSTOM_CRASHCUMP
+#if IS_ENABLED(CONFIG_CUSTOM_CRASHCUMP)
 	if (!ret && kdmp_res.end > kdmp_res.start)
 		(*nr_mem_ranges)++;
 #endif
