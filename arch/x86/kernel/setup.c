@@ -644,6 +644,12 @@ EXPORT_SYMBOL_GPL(kdmp_res);
 bool kdmp_active;
 EXPORT_SYMBOL_GPL(kdmp_active);
 
+phys_addr_t kdmp_phys_base;
+EXPORT_SYMBOL_GPL(kdmp_phys_base);
+
+resource_size_t kdmp_phys_size;
+EXPORT_SYMBOL_GPL(kdmp_phys_size);
+
 static void __init reserve_panic_dump(void)
 {
 	unsigned long long pdmp_size = PDMP_SZ_DATA * PDMP_N_CORE;
@@ -663,6 +669,8 @@ static void __init reserve_panic_dump(void)
 		(unsigned long)(total_mem >> 20));
 	kdmp_res.start = pdmp_base;
 	kdmp_res.end = pdmp_base + pdmp_size - 1;
+	kdmp_phys_base = kdmp_res.start;
+	kdmp_phys_size = resource_size(&kdmp_res);
 	insert_resource(&iomem_resource, &kdmp_res);
 }
 #endif

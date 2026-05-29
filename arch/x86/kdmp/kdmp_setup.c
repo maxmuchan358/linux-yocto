@@ -53,6 +53,12 @@ static int kdmp_panicdump(struct notifier_block *this,
 /* panic dump output (virtual addresses by ioremap()) */
 void *kdmp_buf[PDMP_N_CORE] = { NULL, NULL, NULL, NULL };
 
+struct pdmp_data_t *kdmp_pdmp_primary;
+EXPORT_SYMBOL_GPL(kdmp_pdmp_primary);
+
+struct pdmp_data_t *kdmp_pdmp_slot[PDMP_N_CORE];
+EXPORT_SYMBOL_GPL(kdmp_pdmp_slot);
+
 
 /**
  * initialize panic dump variables.
@@ -70,10 +76,12 @@ static int __init kdmp_initialize(void)
 	for (i = 0; i < PDMP_N_CORE; i++) {
 		phys_addr = kdmp_res.start + (PDMP_SZ_DATA * i);
 		kdmp_buf[i] = ioremap(phys_addr, PDMP_SZ_DATA);
+		kdmp_pdmp_slot[i] = (struct pdmp_data_t *)kdmp_buf[i];
 
 		if (kdmp_buf[i] != NULL)
 			memset(kdmp_buf[i], 0, PDMP_SZ_DATA);
 	}
+	kdmp_pdmp_primary = kdmp_pdmp_slot[0];
 
 	/* init pointer at arch/x86/kernel/dumpstack.c */
 #if IS_ENABLED(CONFIG_CUSTOM_CRASHCUMP)

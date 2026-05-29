@@ -25,11 +25,17 @@
 /* Location of the reserved area for the panic dump */
 extern struct resource kdmp_res;
 extern bool kdmp_active;
+/* Crash-analysis friendly shortcuts for the reserved kdmp range. */
+extern phys_addr_t kdmp_phys_base;
+extern resource_size_t kdmp_phys_size;
 extern u32 kdmp_apic_read(u32 reg);
 
 extern struct pt_regs *kdmp_ecxt_regs[PDMP_N_CORE];
 extern struct pt_regs *kdmp_nmi_regs[PDMP_N_CORE];
 extern struct pt_regs *kdmp_ipi_regs[PDMP_N_CORE];
+/* Typed symbols to inspect custom dump slots directly in crash. */
+extern struct pdmp_data_t *kdmp_pdmp_primary;
+extern struct pdmp_data_t *kdmp_pdmp_slot[PDMP_N_CORE];
 
 /**
  * Panic Dump Format Identifier
