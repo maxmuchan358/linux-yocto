@@ -641,6 +641,9 @@ struct resource kdmp_res = {
 };
 EXPORT_SYMBOL_GPL(kdmp_res);
 
+bool kdmp_active;
+EXPORT_SYMBOL_GPL(kdmp_active);
+
 static void __init reserve_panic_dump(void)
 {
 	unsigned long long pdmp_size = PDMP_SZ_DATA * PDMP_N_CORE;

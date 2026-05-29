@@ -66,6 +66,7 @@
 #include <asm/intel-family.h>
 #include <asm/irq_regs.h>
 #include <asm/cpu.h>
+#include <asm/kdmp.h>
 
 #include "local.h"
 
@@ -93,6 +94,12 @@ static inline bool apic_accessible(void)
 {
 	return x2apic_mode || apic_mmio_base;
 }
+
+u32 kdmp_apic_read(u32 reg)
+{
+	return apic_read(reg);
+}
+EXPORT_SYMBOL_GPL(kdmp_apic_read);
 
 #ifdef CONFIG_X86_32
 /* Local APIC was disabled by the BIOS and enabled by the kernel */

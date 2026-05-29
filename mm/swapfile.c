@@ -3733,6 +3733,7 @@ bool si_swapinfo_trylock(struct sysinfo *val)
 
 	return true;
 }
+EXPORT_SYMBOL_GPL(si_swapinfo_trylock);
 
 /*
  * Verify that nr swap entries are valid and increment their swap map counts.

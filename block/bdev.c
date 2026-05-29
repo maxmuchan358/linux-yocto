@@ -544,6 +544,7 @@ bool nr_blockdev_pages_trylock(long *pages)
 	*pages = ret;
 	return true;
 }
+EXPORT_SYMBOL_GPL(nr_blockdev_pages_trylock);
 
 /**
  * bd_may_claim - test whether a block device can be claimed

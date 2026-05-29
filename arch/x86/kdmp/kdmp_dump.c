@@ -332,18 +332,13 @@ static int setup_header(struct pdmp_data_t *dmpbuf)
 	dmpbuf->sysinfo.totalram = totalram_pages();
 	dmpbuf->sysinfo.sharedram = global_node_page_state(NR_SHMEM);
 	dmpbuf->sysinfo.freeram = global_zone_page_state(NR_FREE_PAGES);
-	if (IS_MODULE(CONFIG_CUSTOM_CRASHCUMP)) {
-		dmpbuf->sysinfo.bufferram = ~0UL;
-	} else if (!nr_blockdev_pages_trylock(&dmpbuf->sysinfo.bufferram)) {
+	if (!nr_blockdev_pages_trylock(&dmpbuf->sysinfo.bufferram)) {
 		dmpbuf->sysinfo.bufferram = ~0UL;
 	}
 	dmpbuf->sysinfo.totalhigh = totalhigh_pages();
 	dmpbuf->sysinfo.freehigh = nr_free_highpages();
 	dmpbuf->sysinfo.mem_unit = PAGE_SIZE;
-	if (IS_MODULE(CONFIG_CUSTOM_CRASHCUMP)) {
-		dmpbuf->sysinfo.freeswap = ~0UL;
-		dmpbuf->sysinfo.totalswap = ~0UL;
-	} else if (!si_swapinfo_trylock(&dmpbuf->sysinfo)) {
+	if (!si_swapinfo_trylock(&dmpbuf->sysinfo)) {
 		dmpbuf->sysinfo.freeswap = dmpbuf->sysinfo.totalswap = ~0UL;
 	}
 	/* set data flag */
@@ -514,10 +509,7 @@ static bool kdmp_local_apic_read_safe(u32 offset, u32 *value)
 		return false;
 
 	if (!x2apic_enabled()) {
-		if (IS_MODULE(CONFIG_CUSTOM_CRASHCUMP))
-			return false;
-
-		*value = apic_read(offset);
+		*value = kdmp_apic_read(offset);
 		return true;
 	}
 

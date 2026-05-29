@@ -64,6 +64,7 @@ static int __init kdmp_initialize(void)
 
 	/* clear initialized flag */
 	kdmp_panic_ready = 0;
+	kdmp_active = false;
 
 	/* initialize output region */
 	for (i = 0; i < PDMP_N_CORE; i++) {
@@ -113,6 +114,7 @@ static int __init kdmp_configure(void)
 	/* coufigure register info. */
 	kdmp_conf_reg_info();
 
+	kdmp_active = true;
 	kdmp_panic_ready = 1;
 
 	return 0;
@@ -133,29 +135,11 @@ static int __init kdmp_module_init(void)
 	return kdmp_configure();
 }
 
-static void __exit kdmp_module_exit(void)
-{
-	int i;
-
-	kdmp_panic_ready = 0;
-	atomic_notifier_chain_unregister(&panic_notifier_list, &kdmp_panic_notifier);
-
-	for (i = 0; i < PDMP_N_CORE; i++) {
-		if (kdmp_buf[i]) {
-			iounmap(kdmp_buf[i]);
-			kdmp_buf[i] = NULL;
-		}
-	}
-
-	panic_dump_gprs = NULL;
-	nmi_dump_gprs = NULL;
-#ifdef CONFIG_SMP
-	ipi_dump_gprs = NULL;
-#endif
-}
-
 module_init(kdmp_module_init);
-module_exit(kdmp_module_exit);
+/*
+ * Unloading is intentionally unsupported: core crash paths retain callback
+ * hooks and the early reserved kdmp memory outlives the module lifecycle.
+ */
 MODULE_DESCRIPTION("x86 custom crashdump support");
 MODULE_LICENSE("GPL");
 #endif

@@ -24,6 +24,8 @@
 #define PDMP_N_STATUS			4
 /* Location of the reserved area for the panic dump */
 extern struct resource kdmp_res;
+extern bool kdmp_active;
+extern u32 kdmp_apic_read(u32 reg);
 
 extern struct pt_regs *kdmp_ecxt_regs[PDMP_N_CORE];
 extern struct pt_regs *kdmp_nmi_regs[PDMP_N_CORE];

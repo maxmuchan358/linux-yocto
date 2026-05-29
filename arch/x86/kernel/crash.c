@@ -179,7 +179,7 @@ static struct crash_mem *fill_up_crash_elf_data(void)
 	 */
 	nr_ranges += 3 + crashk_cma_cnt;
 #if IS_ENABLED(CONFIG_CUSTOM_CRASHCUMP)
-	if (kdmp_res.end > kdmp_res.start)
+	if (kdmp_active && kdmp_res.end > kdmp_res.start)
 		nr_ranges++;
 #endif
 	cmem = vzalloc(struct_size(cmem, ranges, nr_ranges));
@@ -224,7 +224,7 @@ static int elf_header_exclude_ranges(struct crash_mem *cmem)
 	}
 
 #if IS_ENABLED(CONFIG_CUSTOM_CRASHCUMP)
-	if (kdmp_res.end > kdmp_res.start) {
+	if (kdmp_active && kdmp_res.end > kdmp_res.start) {
 		ret = crash_exclude_mem_range(cmem, kdmp_res.start, kdmp_res.end);
 		if (ret)
 			return ret;
@@ -257,7 +257,7 @@ static int append_kdmp_load_header(void **addr, unsigned long *sz)
 	resource_size_t kdmp_size;
 	void *new_buf;
 
-	if (kdmp_res.end <= kdmp_res.start)
+	if (!kdmp_active || kdmp_res.end <= kdmp_res.start)
 		return 0;
 
 	kdmp_paddr = kdmp_res.start;
@@ -326,7 +326,7 @@ static int prepare_elf_headers(void **addr, unsigned long *sz,
 	if (!ret)
 		ret = append_kdmp_load_header(addr, sz);
 #if IS_ENABLED(CONFIG_CUSTOM_CRASHCUMP)
-	if (!ret && kdmp_res.end > kdmp_res.start)
+	if (!ret && kdmp_active && kdmp_res.end > kdmp_res.start)
 		(*nr_mem_ranges)++;
 #endif
 
