@@ -21,6 +21,15 @@ enum {
 	FIXED = BA_BEGIN,
 	PMBASE,
 	SMB_BASE,
+	VGA_MMIO_BASE,
+	E1000E_MMIO_BASE,
+	E1000E_IO_BASE,
+	SATA_MMIO_BASE,
+	SATA_IO_BASE,
+	VIRTIO_MMIO_BASE,
+	VIRTIO_PMMIO_BASE,
+	VIRTIO_IO_BASE,
+	PCIE_RP_MMIO_BASE,
 	TEST_MMIO_BASE,
 	TEST_IO_BASE,
 	NET_MMIO_BASE,
@@ -46,6 +55,15 @@ static struct pdmp_base_addr_t kdmp_base_addr[] = {
 	{FIXED,	BASE_ADDR_NA},
 	{PMBASE,	BASE_ADDR_NA},
 	{SMB_BASE,	BASE_ADDR_NA},
+	{VGA_MMIO_BASE,	BASE_ADDR_NA},
+	{E1000E_MMIO_BASE,	BASE_ADDR_NA},
+	{E1000E_IO_BASE,	BASE_ADDR_NA},
+	{SATA_MMIO_BASE,	BASE_ADDR_NA},
+	{SATA_IO_BASE,	BASE_ADDR_NA},
+	{VIRTIO_MMIO_BASE,	BASE_ADDR_NA},
+	{VIRTIO_PMMIO_BASE,	BASE_ADDR_NA},
+	{VIRTIO_IO_BASE,	BASE_ADDR_NA},
+	{PCIE_RP_MMIO_BASE,	BASE_ADDR_NA},
 	{TEST_MMIO_BASE,	BASE_ADDR_NA},
 	{TEST_IO_BASE,	BASE_ADDR_NA},
 	{NET_MMIO_BASE,	BASE_ADDR_NA},
@@ -126,6 +144,51 @@ static resource_size_t kdmp_get_base_address(int baid)
 		}
 		DBG("pdmp: SMB_BASE:%08x v:%08x\n", ba, v32);
 		break;
+	case VGA_MMIO_BASE:
+		/* q35 stdvga BAR2 (register window) */
+		ret = kdmp_read_pci_bar(REG_VGA_DEV_PCI_CFG, 0x18, &ba);
+		DBG("pdmp: VGA_MMIO_BASE:%016llx\n", (unsigned long long)ba);
+		break;
+	case E1000E_MMIO_BASE:
+		/* e1000e BAR0 */
+		ret = kdmp_read_pci_bar(REG_E1000E_DEV_PCI_CFG, 0x10, &ba);
+		DBG("pdmp: E1000E_MMIO_BASE:%016llx\n", (unsigned long long)ba);
+		break;
+	case E1000E_IO_BASE:
+		/* e1000e BAR2 */
+		ret = kdmp_read_pci_bar(REG_E1000E_DEV_PCI_CFG, 0x18, &ba);
+		DBG("pdmp: E1000E_IO_BASE:%016llx\n", (unsigned long long)ba);
+		break;
+	case SATA_MMIO_BASE:
+		/* ich9-ahci BAR5 */
+		ret = kdmp_read_pci_bar(REG_SATA_PCI_CFG, 0x24, &ba);
+		DBG("pdmp: SATA_MMIO_BASE:%016llx\n", (unsigned long long)ba);
+		break;
+	case SATA_IO_BASE:
+		/* ich9-ahci BAR4 */
+		ret = kdmp_read_pci_bar(REG_SATA_PCI_CFG, 0x20, &ba);
+		DBG("pdmp: SATA_IO_BASE:%016llx\n", (unsigned long long)ba);
+		break;
+	case VIRTIO_MMIO_BASE:
+		/* virtio-pci BAR1 */
+		ret = kdmp_read_pci_bar(REG_VIRTIO_PCI_CFG, 0x14, &ba);
+		DBG("pdmp: VIRTIO_MMIO_BASE:%016llx\n", (unsigned long long)ba);
+		break;
+	case VIRTIO_PMMIO_BASE:
+		/* virtio-pci BAR4 (64-bit pref MMIO) */
+		ret = kdmp_read_pci_bar(REG_VIRTIO_PCI_CFG, 0x20, &ba);
+		DBG("pdmp: VIRTIO_PMMIO_BASE:%016llx\n", (unsigned long long)ba);
+		break;
+	case VIRTIO_IO_BASE:
+		/* virtio-pci BAR0 */
+		ret = kdmp_read_pci_bar(REG_VIRTIO_PCI_CFG, 0x10, &ba);
+		DBG("pdmp: VIRTIO_IO_BASE:%016llx\n", (unsigned long long)ba);
+		break;
+	case PCIE_RP_MMIO_BASE:
+		/* pcie-root-port BAR0 */
+		ret = kdmp_read_pci_bar(REG_PCIE_RP_PCI_CFG, 0x10, &ba);
+		DBG("pdmp: PCIE_RP_MMIO_BASE:%016llx\n", (unsigned long long)ba);
+		break;
 	case TEST_MMIO_BASE:
 		/* custom-crashdump-test BAR0 */
 		ret = kdmp_read_pci_bar(REG_TEST_DEV_PCI_CFG, 0x10, &ba);
@@ -197,12 +260,26 @@ enum {
 /* q35 + ICH9 default topology */
 static struct pdmp_reg_def_t kdmp_reg_def[] = {
 {REG_HOST_DEV_CFG,	REG_T_PCI, BDF(0,  0, 0),	0, 0x0100, 0},
+{REG_VGA_DEV_PCI_CFG,	REG_T_PCI, BDF(0,  1, 0),	0, 0x0100, 0},
+{REG_E1000E_DEV_PCI_CFG,	REG_T_PCI, BDF(0,  2, 0),	0, 0x0100, 0},
 {REG_LPC_PCI_CFG,	REG_T_PCI, BDF(0, 31, 0),	0, 0x0100, 0},
+{REG_SATA_PCI_CFG,	REG_T_PCI, BDF(0, 31, 2),	0, 0x0100, 0},
 {REG_SMBUS_PCI_CFG,	REG_T_PCI, BDF(0, 31, 3),	0, 0x0100, 0},
-{REG_TEST_DEV_PCI_CFG,	REG_T_PCI, BDF(0,  4, 0),	0, 0x0100, 0},
-{REG_NET_DEV_PCI_CFG,	REG_T_PCI, BDF(0,  5, 0),	0, 0x0100, 0},
-{REG_STOR_DEV_PCI_CFG,	REG_T_PCI, BDF(0,  6, 0),	0, 0x0100, 0},
+{REG_VIRTIO_PCI_CFG,	REG_T_PCI, BDF(0,  6, 0),	0, 0x0100, 0},
+{REG_PCIE_RP_PCI_CFG,	REG_T_PCI, BDF(0,  7, 0),	0, 0x0100, 0},
+{REG_TEST_DEV_PCI_CFG,	REG_T_PCI, BDF(0,  3, 0),	0, 0x0100, 0},
+{REG_NET_DEV_PCI_CFG,	REG_T_PCI, BDF(0,  4, 0),	0, 0x0100, 0},
+{REG_STOR_DEV_PCI_CFG,	REG_T_PCI, BDF(0,  5, 0),	0, 0x0100, 0},
 {REG_PCIE_DEV_PCI_CFG,	REG_T_PCI, BDF(1,  0, 0),	0, 0x0400, 0},
+{REG_VGA_DEV_MMIO,	REG_T_MM,  VGA_MMIO_BASE,	0, 0x1000, 0},
+{REG_E1000E_DEV_MMIO,	REG_T_MM,  E1000E_MMIO_BASE,	0, 0x1000, 0},
+{REG_E1000E_DEV_IO,	REG_T_IO,  E1000E_IO_BASE,	0, 0x0020, 0},
+{REG_SATA_DEV_MMIO,	REG_T_MM,  SATA_MMIO_BASE,	0, 0x1000, 0},
+{REG_SATA_DEV_IO,	REG_T_IO,  SATA_IO_BASE,	0, 0x0020, 0},
+{REG_VIRTIO_DEV_MMIO,	REG_T_MM,  VIRTIO_MMIO_BASE,	0, 0x1000, 0},
+{REG_VIRTIO_DEV_PMMIO,	REG_T_MM,  VIRTIO_PMMIO_BASE,	0, 0x1000, 0},
+{REG_VIRTIO_DEV_IO,	REG_T_IO,  VIRTIO_IO_BASE,	0, 0x0040, 0},
+{REG_PCIE_RP_MMIO,	REG_T_MM,  PCIE_RP_MMIO_BASE,	0, 0x1000, 0},
 {REG_TEST_DEV_MMIO,	REG_T_MM,  TEST_MMIO_BASE,	0, 0x0400, 0},
 {REG_TEST_DEV_IO,	REG_T_IO,  TEST_IO_BASE,	0, 0x0080, 0},
 {REG_NET_DEV_MMIO,	REG_T_MM,  NET_MMIO_BASE,	0, 0x0200, 0},
