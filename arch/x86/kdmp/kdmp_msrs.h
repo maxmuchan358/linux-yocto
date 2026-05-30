@@ -6,7 +6,7 @@
 
 #define CPUID_SUBLEAF_NA	0xFFFFFFFF
 
-struct pdmp_cpuid_def_t kdmp_cpuid_defs[] = {
+struct kdmp_cpuid_def_t kdmp_cpuid_defs[] = {
 	{0x00000000, CPUID_SUBLEAF_NA},
 	{0x00000001, CPUID_SUBLEAF_NA},
 	{0x00000007, 0x00000000},
@@ -21,7 +21,7 @@ struct pdmp_cpuid_def_t kdmp_cpuid_defs[] = {
 };
 
 /* model-specific register definitions */
-struct pdmp_msr_def_t kdmp_msr_defs[] = {
+struct kdmp_msr_def_t kdmp_msr_defs[] = {
 	{ 0x00000010 }, /* IA32_TIME_STAMP_COUNTER */
 	{ 0x0000001B }, /* IA32_APIC_BASE */
 	{ 0x00000174 }, /* IA32_SYSENTER_CS */
@@ -41,7 +41,7 @@ struct pdmp_msr_def_t kdmp_msr_defs[] = {
 	{ 0xC0000103 }, /* IA32_TSC_AUX */
 };
 
-struct pdmp_msr_def_t kdmp_mcmsr_defs[] = {
+struct kdmp_msr_def_t kdmp_mcmsr_defs[] = {
 	{ 0x00000179 }, /* IA32_MCG_CAP */
 	{ 0x0000017A }, /* IA32_MCG_STATUS */
 	{ 0x0000017B }, /* IA32_MCG_CTL */

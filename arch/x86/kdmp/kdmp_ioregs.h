@@ -11,7 +11,7 @@
  *
  * register and dump area mapping table.
  *
- * struct pdmp_reg_map_t {
+ * struct kdmp_reg_map_t {
  *	int regid;			// register identify
  *	unsigned long offset;	// read register offset
  *	unsigned long size;		// read/write data size
@@ -21,7 +21,7 @@
  * } ;
  */
 /* q35 + ICH9 dump layout used by the current QEMU test harness. */
-struct pdmp_reg_map_t kdmp_pcireg_map[] = {
+struct kdmp_reg_map_t kdmp_pcireg_map[] = {
 	{REG_HOST_DEV_CFG,	0, 0x0100, IDX_NON, 0, 0x0000},
 	{REG_VGA_DEV_PCI_CFG,	0, 0x0100, IDX_NON, 0, 0x0100},
 	{REG_E1000E_DEV_PCI_CFG,	0, 0x0100, IDX_NON, 0, 0x0200},
@@ -41,7 +41,7 @@ struct pdmp_reg_map_t kdmp_pcireg_map[] = {
  *
  * register and dump area mapping table.
  *
- * struct pdmp_reg_map_t {
+ * struct kdmp_reg_map_t {
  *	int regid;			// register identify
  *	unsigned long offset;	// read register offset
  *	unsigned long size;		// read/write data size
@@ -50,7 +50,7 @@ struct pdmp_reg_map_t kdmp_pcireg_map[] = {
  *	unsigned long pos;		// write area offset
  * } ;
  */
-struct pdmp_reg_map_t kdmp_ioreg_map[] = {
+struct kdmp_reg_map_t kdmp_ioreg_map[] = {
 	/* DMA I/O Registers */
 	{REG_DMA_IO, 0x0000, 1, IDX_NON, 0, 0},
 	{REG_DMA_IO, 0x0001, 1, IDX_NON, 0, 0},

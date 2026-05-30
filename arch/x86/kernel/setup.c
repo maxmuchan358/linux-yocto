@@ -652,23 +652,23 @@ EXPORT_SYMBOL_GPL(kdmp_phys_size);
 
 static void __init reserve_panic_dump(void)
 {
-	unsigned long long pdmp_size = PDMP_SZ_DATA * PDMP_N_CORE;
-	unsigned long long pdmp_base;
+	unsigned long long kdmp_size = PDMP_SZ_DATA * PDMP_N_CORE;
+	unsigned long long kdmp_base;
 	unsigned long long total_mem = memblock_phys_mem_size();
 	phys_addr_t alloc_end = min_t(phys_addr_t, memblock_end_of_DRAM(), 1ULL << 32);
 
-	pdmp_base = memblock_phys_alloc_range(pdmp_size, PMD_SIZE, 0, alloc_end);
-	if (!pdmp_base) {
+	kdmp_base = memblock_phys_alloc_range(kdmp_size, PMD_SIZE, 0, alloc_end);
+	if (!kdmp_base) {
 		pr_info("kdmp reservation failed - no free range found\n");
 		return;
 	}
 
 	pr_info("Reserving %luMB of memory at %luMB for kdmp dynamically (System RAM: %luMB)\n",
-		(unsigned long)(pdmp_size >> 20),
-		(unsigned long)(pdmp_base >> 20),
+		(unsigned long)(kdmp_size >> 20),
+		(unsigned long)(kdmp_base >> 20),
 		(unsigned long)(total_mem >> 20));
-	kdmp_res.start = pdmp_base;
-	kdmp_res.end = pdmp_base + pdmp_size - 1;
+	kdmp_res.start = kdmp_base;
+	kdmp_res.end = kdmp_base + kdmp_size - 1;
 	kdmp_phys_base = kdmp_res.start;
 	kdmp_phys_size = resource_size(&kdmp_res);
 	insert_resource(&iomem_resource, &kdmp_res);

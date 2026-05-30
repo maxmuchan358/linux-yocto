@@ -5,7 +5,7 @@
 #ifndef _KDMP_LOCALAPIC_H_
 #define _KDMP_LOCALAPIC_H_
 
-static struct pdmp_localapic_def_t kdmp_localapic_defs[] = {
+static struct kdmp_localapic_def_t kdmp_localapic_defs[] = {
 	{ 0x00000020 },
 	{ 0x00000030 },
 	{ 0x00000080 },

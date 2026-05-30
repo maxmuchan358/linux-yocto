@@ -13,25 +13,25 @@
 
 /* panic dump function prototype. */
 int kdmp_panicdump_exec(void);
-struct pdmp_data_t *kdmp_current_dump_region(void);
+struct kdmp_data_t *kdmp_current_dump_region(void);
 #if IS_ENABLED(CONFIG_CUSTOM_CRASHCUMP)
 void dump_call_panic(void);
 void dump_call_nmi(void);
 void dump_call_ipi(void);
 #endif
 
-struct pdmp_cpuid_def_t {
+struct kdmp_cpuid_def_t {
 	unsigned int leaf;
 	unsigned int subleaf;
 };
 #define CPUID_LEAF_MIN	0x00000000
 #define CPUID_LEAF_EX_MIN	0x80000000
 
-struct pdmp_msr_def_t {
+struct kdmp_msr_def_t {
 	unsigned int msr;
 };
 
-struct pdmp_localapic_def_t {
+struct kdmp_localapic_def_t {
 	uint32_t offset;
 };
 
@@ -63,7 +63,7 @@ struct pdmp_localapic_def_t {
 /**
  * relation of register's src and dst.
  */
-struct pdmp_reg_map_t {
+struct kdmp_reg_map_t {
 	int regid;			/*!< register id */
 	unsigned long offset;	/*!< read register offset */
 	unsigned long size;		/*!< read/write data size */
@@ -72,7 +72,7 @@ struct pdmp_reg_map_t {
 	unsigned long pos;		/*!< write area offset */
 };
 
-#define IDX_NON	0xFFFFFFFF	/*!< disabled pdmp_reg_map_t.idx_offset */
+#define IDX_NON	0xFFFFFFFF	/*!< disabled kdmp_reg_map_t.idx_offset */
 
 /* Dump GPRs in panic */
 extern void (*panic_dump_gprs)(void); /* kernel/panic.c */

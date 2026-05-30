@@ -46,12 +46,12 @@ enum {
  * base address list.
  * read from PCI and Memory, and setup.
  */
-struct pdmp_base_addr_t {
+struct kdmp_base_addr_t {
 	int id;
 	resource_size_t ba;
 };
 
-static struct pdmp_base_addr_t kdmp_base_addr[] = {
+static struct kdmp_base_addr_t kdmp_base_addr[] = {
 	{FIXED,	BASE_ADDR_NA},
 	{PMBASE,	BASE_ADDR_NA},
 	{SMB_BASE,	BASE_ADDR_NA},
@@ -132,7 +132,7 @@ static resource_size_t kdmp_get_base_address(int baid)
 			if ((v32 != BASE_ADDR_NA) && (v32 != 0))
 				ba = ((v32 & 0x0000FFFF) >> 7) * 128;
 		}
-		DBG("pdmp: PMBASE:%08x v:%08x\n", ba, v32);
+		DBG("kdmp: PMBASE:%08x v:%08x\n", ba, v32);
 		break;
 	case SMB_BASE:/* SMBus */
 		/* SMBus Controller Registers:SMBus Base Address: +20h */
@@ -142,57 +142,57 @@ static resource_size_t kdmp_get_base_address(int baid)
 			if ((v32 != BASE_ADDR_NA) && (v32 != 0))
 				ba = ((v32 & 0x0000FFFF) >> 5) * 32;
 		}
-		DBG("pdmp: SMB_BASE:%08x v:%08x\n", ba, v32);
+		DBG("kdmp: SMB_BASE:%08x v:%08x\n", ba, v32);
 		break;
 	case VGA_MMIO_BASE:
 		/* q35 stdvga BAR2 (register window) */
 		ret = kdmp_read_pci_bar(REG_VGA_DEV_PCI_CFG, 0x18, &ba);
-		DBG("pdmp: VGA_MMIO_BASE:%016llx\n", (unsigned long long)ba);
+		DBG("kdmp: VGA_MMIO_BASE:%016llx\n", (unsigned long long)ba);
 		break;
 	case E1000E_MMIO_BASE:
 		/* e1000e BAR0 */
 		ret = kdmp_read_pci_bar(REG_E1000E_DEV_PCI_CFG, 0x10, &ba);
-		DBG("pdmp: E1000E_MMIO_BASE:%016llx\n", (unsigned long long)ba);
+		DBG("kdmp: E1000E_MMIO_BASE:%016llx\n", (unsigned long long)ba);
 		break;
 	case E1000E_IO_BASE:
 		/* e1000e BAR2 */
 		ret = kdmp_read_pci_bar(REG_E1000E_DEV_PCI_CFG, 0x18, &ba);
-		DBG("pdmp: E1000E_IO_BASE:%016llx\n", (unsigned long long)ba);
+		DBG("kdmp: E1000E_IO_BASE:%016llx\n", (unsigned long long)ba);
 		break;
 	case SATA_MMIO_BASE:
 		/* ich9-ahci BAR5 */
 		ret = kdmp_read_pci_bar(REG_SATA_PCI_CFG, 0x24, &ba);
-		DBG("pdmp: SATA_MMIO_BASE:%016llx\n", (unsigned long long)ba);
+		DBG("kdmp: SATA_MMIO_BASE:%016llx\n", (unsigned long long)ba);
 		break;
 	case SATA_IO_BASE:
 		/* ich9-ahci BAR4 */
 		ret = kdmp_read_pci_bar(REG_SATA_PCI_CFG, 0x20, &ba);
-		DBG("pdmp: SATA_IO_BASE:%016llx\n", (unsigned long long)ba);
+		DBG("kdmp: SATA_IO_BASE:%016llx\n", (unsigned long long)ba);
 		break;
 	case VIRTIO_MMIO_BASE:
 		/* virtio-pci BAR1 */
 		ret = kdmp_read_pci_bar(REG_VIRTIO_PCI_CFG, 0x14, &ba);
-		DBG("pdmp: VIRTIO_MMIO_BASE:%016llx\n", (unsigned long long)ba);
+		DBG("kdmp: VIRTIO_MMIO_BASE:%016llx\n", (unsigned long long)ba);
 		break;
 	case VIRTIO_PMMIO_BASE:
 		/* virtio-pci BAR4 (64-bit pref MMIO) */
 		ret = kdmp_read_pci_bar(REG_VIRTIO_PCI_CFG, 0x20, &ba);
-		DBG("pdmp: VIRTIO_PMMIO_BASE:%016llx\n", (unsigned long long)ba);
+		DBG("kdmp: VIRTIO_PMMIO_BASE:%016llx\n", (unsigned long long)ba);
 		break;
 	case VIRTIO_IO_BASE:
 		/* virtio-pci BAR0 */
 		ret = kdmp_read_pci_bar(REG_VIRTIO_PCI_CFG, 0x10, &ba);
-		DBG("pdmp: VIRTIO_IO_BASE:%016llx\n", (unsigned long long)ba);
+		DBG("kdmp: VIRTIO_IO_BASE:%016llx\n", (unsigned long long)ba);
 		break;
 	case PCIE_RP_MMIO_BASE:
 		/* pcie-root-port BAR0 */
 		ret = kdmp_read_pci_bar(REG_PCIE_RP_PCI_CFG, 0x10, &ba);
-		DBG("pdmp: PCIE_RP_MMIO_BASE:%016llx\n", (unsigned long long)ba);
+		DBG("kdmp: PCIE_RP_MMIO_BASE:%016llx\n", (unsigned long long)ba);
 		break;
 	case TEST_MMIO_BASE:
 		/* custom-crashdump-test BAR0 */
 		ret = kdmp_read_pci_bar(REG_TEST_DEV_PCI_CFG, 0x10, &ba);
-		DBG("pdmp: TEST_MMIO_BASE:%016llx\n", (unsigned long long)ba);
+		DBG("kdmp: TEST_MMIO_BASE:%016llx\n", (unsigned long long)ba);
 		break;
 	case TEST_IO_BASE:
 		/* custom-crashdump-test BAR1 or BAR2 when BAR0 is 64-bit */
@@ -202,28 +202,28 @@ static resource_size_t kdmp_get_base_address(int baid)
 			ret = kdmp_read_pci_bar(REG_TEST_DEV_PCI_CFG, 0x18, &ba);
 		else
 			ret = kdmp_read_pci_bar(REG_TEST_DEV_PCI_CFG, 0x14, &ba);
-		DBG("pdmp: TEST_IO_BASE:%016llx low:%08x\n",
+		DBG("kdmp: TEST_IO_BASE:%016llx low:%08x\n",
 		    (unsigned long long)ba, v32);
 		break;
 	case NET_MMIO_BASE:
 		/* custom-crashdump-net BAR0 */
 		ret = kdmp_read_pci_bar(REG_NET_DEV_PCI_CFG, 0x10, &ba);
-		DBG("pdmp: NET_MMIO_BASE:%016llx\n", (unsigned long long)ba);
+		DBG("kdmp: NET_MMIO_BASE:%016llx\n", (unsigned long long)ba);
 		break;
 	case NET_IO_BASE:
 		/* custom-crashdump-net BAR1 */
 		ret = kdmp_read_pci_bar(REG_NET_DEV_PCI_CFG, 0x14, &ba);
-		DBG("pdmp: NET_IO_BASE:%016llx\n", (unsigned long long)ba);
+		DBG("kdmp: NET_IO_BASE:%016llx\n", (unsigned long long)ba);
 		break;
 	case STOR_MMIO_BASE:
 		/* custom-crashdump-stor BAR0 */
 		ret = kdmp_read_pci_bar(REG_STOR_DEV_PCI_CFG, 0x10, &ba);
-		DBG("pdmp: STOR_MMIO_BASE:%016llx\n", (unsigned long long)ba);
+		DBG("kdmp: STOR_MMIO_BASE:%016llx\n", (unsigned long long)ba);
 		break;
 	case PCIE_MMIO_BASE:
 		/* custom-crashdump-pcie BAR0 (64-bit MMIO) */
 		ret = kdmp_read_pci_bar(REG_PCIE_DEV_PCI_CFG, 0x10, &ba);
-		DBG("pdmp: PCIE_MMIO_BASE:%016llx\n", (unsigned long long)ba);
+		DBG("kdmp: PCIE_MMIO_BASE:%016llx\n", (unsigned long long)ba);
 		break;
 	default:
 		return ba;
@@ -233,7 +233,7 @@ static resource_size_t kdmp_get_base_address(int baid)
 	return ba;
 }
 
-struct pdmp_reg_def_t {
+struct kdmp_reg_def_t {
 	int id;
 	int type;
 	int base;	/* type depended. PCI:bdf, other:baid*/
@@ -244,7 +244,7 @@ struct pdmp_reg_def_t {
 
 /*
  * register types.
- * pdmp_reg_def_t::type
+ * kdmp_reg_def_t::type
  */
 enum {
 	REG_T_PCI,
@@ -258,7 +258,7 @@ enum {
 #define BDF(b , d, f)	PCI_CONF_BDF(b, d, f)
 
 /* q35 + ICH9 default topology */
-static struct pdmp_reg_def_t kdmp_reg_def[] = {
+static struct kdmp_reg_def_t kdmp_reg_def[] = {
 {REG_HOST_DEV_CFG,	REG_T_PCI, BDF(0,  0, 0),	0, 0x0100, 0},
 {REG_VGA_DEV_PCI_CFG,	REG_T_PCI, BDF(0,  1, 0),	0, 0x0100, 0},
 {REG_E1000E_DEV_PCI_CFG,	REG_T_PCI, BDF(0,  2, 0),	0, 0x0100, 0},
@@ -300,7 +300,7 @@ static struct pdmp_reg_def_t kdmp_reg_def[] = {
 /**
  * read pci configuration register.
  */
-static int pdmp_pci_iocfg_read(unsigned int seg, unsigned int bdf,
+static int kdmp_pci_iocfg_read(unsigned int seg, unsigned int bdf,
 		int reg, int len, u8 *value)
 {
 	outl(PCI_CONF_ADDR_BDF(bdf, reg), PCI_CONFIG_ADDRESS);
@@ -354,12 +354,12 @@ static int kdmp_pci_cfg_read(unsigned int seg, unsigned int bdf,
 		int reg, int len, u8 *value)
 {
 	if (reg < 256)
-		return pdmp_pci_iocfg_read(seg, bdf, reg, len, value);
+		return kdmp_pci_iocfg_read(seg, bdf, reg, len, value);
 
 	return kdmp_pci_mmcfg_read(seg, bdf, reg, len, value);
 }
 
-static int pdmp_read_pcicfg(int regid, int offset, void *buf, int size)
+static int kdmp_read_pcicfg(int regid, int offset, void *buf, int size)
 {
 	u8 *dst;
 	unsigned long bdf;
@@ -368,7 +368,7 @@ static int pdmp_read_pcicfg(int regid, int offset, void *buf, int size)
 	int i, n;
 	int reg;
 	int pos = 0;
-	struct pdmp_reg_def_t *def = &kdmp_reg_def[regid];
+	struct kdmp_reg_def_t *def = &kdmp_reg_def[regid];
 
 	dst = (u8 *)buf;
 	bdf = def->base;
@@ -406,13 +406,13 @@ static int pdmp_read_pcicfg(int regid, int offset, void *buf, int size)
 /**
  * read mamory mapped register.
  */
-static int pdmp_read_memory(int regid, int offset, void *buf, int size)
+static int kdmp_read_memory(int regid, int offset, void *buf, int size)
 {
 	u8 *src;
 	u8 *dst;
 	int i = 0;
 	int remain;
-	struct pdmp_reg_def_t *reg = &kdmp_reg_def[regid];
+	struct kdmp_reg_def_t *reg = &kdmp_reg_def[regid];
 
 	src = (u8 *)kdmp_get_mmap_addr(regid);
 	if (src == NULL)
@@ -444,10 +444,10 @@ static int pdmp_read_memory(int regid, int offset, void *buf, int size)
 /**
  * write mamory mapped register.
  */
-static int pdmp_write_memory(int regid, int offset, u32 data, int size)
+static int kdmp_write_memory(int regid, int offset, u32 data, int size)
 {
 	u8 *dst;
-	struct pdmp_reg_def_t *reg = &kdmp_reg_def[regid];
+	struct kdmp_reg_def_t *reg = &kdmp_reg_def[regid];
 
 	dst = (u8 *)kdmp_get_mmap_addr(regid);
 	if (dst == NULL)
@@ -475,12 +475,12 @@ static int pdmp_write_memory(int regid, int offset, u32 data, int size)
 /**
  * read io register.
  */
-static int pdmp_read_ioport(int regid, int offset, void *buf, int size)
+static int kdmp_read_ioport(int regid, int offset, void *buf, int size)
 {
 	u8 *dst;
 	int baid;
 	unsigned long ba;
-	struct pdmp_reg_def_t *reg = &kdmp_reg_def[regid];
+	struct kdmp_reg_def_t *reg = &kdmp_reg_def[regid];
 	int i = 0;
 	int remain;
 
@@ -513,11 +513,11 @@ static int pdmp_read_ioport(int regid, int offset, void *buf, int size)
 /**
  * write io register.
  */
-static int pdmp_write_ioport(int regid, int offset, u32 data, int size)
+static int kdmp_write_ioport(int regid, int offset, u32 data, int size)
 {
 	int baid;
 	unsigned long ba;
-	struct pdmp_reg_def_t *reg = &kdmp_reg_def[regid];
+	struct kdmp_reg_def_t *reg = &kdmp_reg_def[regid];
 
 	baid = reg->base;
 	ba = kdmp_get_base_address(baid);
@@ -547,16 +547,16 @@ static int pdmp_write_ioport(int regid, int offset, u32 data, int size)
 int kdmp_read_reg(int regid, int offset, void *buf, int size)
 {
 	int result = -1;
-	struct pdmp_reg_def_t *reg = &kdmp_reg_def[regid];
+	struct kdmp_reg_def_t *reg = &kdmp_reg_def[regid];
 	switch (reg->type) {
 	case REG_T_PCI:
-		result = pdmp_read_pcicfg(regid, offset, buf, size);
+		result = kdmp_read_pcicfg(regid, offset, buf, size);
 		break;
 	case REG_T_MM:
-		result = pdmp_read_memory(regid, offset, buf, size);
+		result = kdmp_read_memory(regid, offset, buf, size);
 		break;
 	case REG_T_IO:
-		result = pdmp_read_ioport(regid, offset, buf, size);
+		result = kdmp_read_ioport(regid, offset, buf, size);
 		break;
 	}
 	return result;
@@ -568,13 +568,13 @@ int kdmp_read_reg(int regid, int offset, void *buf, int size)
 int kdmp_write_reg(int regid, int offset, u32 data, int size)
 {
 	int result = -1;
-	struct pdmp_reg_def_t *reg = &kdmp_reg_def[regid];
+	struct kdmp_reg_def_t *reg = &kdmp_reg_def[regid];
 	switch (reg->type) {
 	case REG_T_MM:
-		result = pdmp_write_memory(regid, offset, data, size);
+		result = kdmp_write_memory(regid, offset, data, size);
 		break;
 	case REG_T_IO:
-		result = pdmp_write_ioport(regid, offset, data, size);
+		result = kdmp_write_ioport(regid, offset, data, size);
 		break;
 	}
 	return result;
@@ -585,7 +585,7 @@ int kdmp_write_reg(int regid, int offset, u32 data, int size)
  */
 static void *kdmp_get_mmap_addr(int regid)
 {
-	struct pdmp_reg_def_t *reg;
+	struct kdmp_reg_def_t *reg;
 	void *virt = NULL;
 	int baid;
 	resource_size_t ba;
@@ -639,7 +639,7 @@ int kdmp_init_reg_info(void)
  */
 int kdmp_conf_reg_info(void)
 {
-	struct pdmp_reg_def_t *reg;
+	struct kdmp_reg_def_t *reg;
 	int i;
 	int n;
 	resource_size_t ba;
@@ -648,7 +648,7 @@ int kdmp_conf_reg_info(void)
 	/* setup base address */
 	for (i = BA_BEGIN; i < BA_END; ++i) {
 		ba = kdmp_get_base_address(i);
-		DBG("pdmp: config panicdump baid[%02d]=%016llx\n",
+		DBG("kdmp: config panicdump baid[%02d]=%016llx\n",
 		    i, (unsigned long long)ba);
 	}
 
@@ -658,7 +658,7 @@ int kdmp_conf_reg_info(void)
 		reg = &kdmp_reg_def[i];
 		if (reg->type == REG_T_MM) {
 			mm = kdmp_get_mmap_addr(reg->id);
-			DBG("pdmp: config panicdump regid[%02d]=%p\n", i, mm);
+			DBG("kdmp: config panicdump regid[%02d]=%p\n", i, mm);
 		}
 	}
 	return 0;

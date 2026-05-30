@@ -34,8 +34,8 @@ extern struct pt_regs *kdmp_ecxt_regs[PDMP_N_CORE];
 extern struct pt_regs *kdmp_nmi_regs[PDMP_N_CORE];
 extern struct pt_regs *kdmp_ipi_regs[PDMP_N_CORE];
 /* Typed symbols to inspect custom dump slots directly in crash. */
-extern struct pdmp_data_t *kdmp_pdmp_primary;
-extern struct pdmp_data_t *kdmp_pdmp_slot[PDMP_N_CORE];
+extern struct kdmp_data_t *kdmp_kdmp_primary;
+extern struct kdmp_data_t *kdmp_kdmp_slot[PDMP_N_CORE];
 
 /**
  * Panic Dump Format Identifier
@@ -50,7 +50,7 @@ extern struct pdmp_data_t *kdmp_pdmp_slot[PDMP_N_CORE];
 
 /**
  * Panic Dump Data Flags
- * (pdmp_head_t::status)
+ * (kdmp_head_t::status)
  */
 #define PDMP_OK_HEAD          0x00000001
 #define PDMP_OK_STAT          0x00000002
@@ -61,7 +61,7 @@ extern struct pdmp_data_t *kdmp_pdmp_slot[PDMP_N_CORE];
 
 /**
  * Panic Dump Data Flags
- * (pdmp_head_t::flags_status[n])
+ * (kdmp_head_t::flags_status[n])
  */
 #define PDMP_OK_GPRS          0x01
 #define PDMP_OK_GPRS_EXCP     0x02
@@ -72,7 +72,7 @@ extern struct pdmp_data_t *kdmp_pdmp_slot[PDMP_N_CORE];
 #define PDMP_OK_MSRS          0x40
 #define PDMP_OK_KSTACK        0x80
 
-struct pdmp_head_t {
+struct kdmp_head_t {
 	uint32_t magic;
 #define PDMP_MAGIC_NUM  PDMP_FORMAT_ID
 	uint32_t format;
@@ -84,7 +84,7 @@ struct pdmp_head_t {
 	uint8_t rsv1[24];
 };
 
-struct pdmp_x86_gprs_t {
+struct kdmp_x86_gprs_t {
 	uint32_t eax;
 	uint32_t ebx;
 	uint32_t ecx;
@@ -102,32 +102,32 @@ struct pdmp_x86_gprs_t {
 	uint32_t eflags;
 };
 
-struct pdmp_x86_xmmrs_t {
+struct kdmp_x86_xmmrs_t {
 	uint8_t xmm[8][16];
 	uint32_t mxcsr;
 };
 
-struct pdmp_x86_memmrs_t {
+struct kdmp_x86_memmrs_t {
 	struct desc_ptr gdtr;
 	struct desc_ptr idtr;
 	uint32_t ldtr;
 	uint32_t tr;
 };
 
-struct pdmp_cpuid_t {
+struct kdmp_cpuid_t {
 	unsigned int eax;
 	unsigned int ebx;
 	unsigned int ecx;
 	unsigned int edx;
 };
 
-struct pdmp_x86_msr_t {
+struct kdmp_x86_msr_t {
 	int err;
 	unsigned long long data;
 };
 
-struct pdmp_x86_regs_t {
-	struct pdmp_x86_gprs_t gprs;
+struct kdmp_x86_regs_t {
+	struct kdmp_x86_gprs_t gprs;
 	uint64_t saved_sp;
 	uint8_t rsv0[24];
 	struct pt_regs excp_gprs;
@@ -136,25 +136,25 @@ struct pdmp_x86_regs_t {
 	uint8_t rsv2[48];
 	uint64_t mmxrs[8];
 	uint8_t rsv3[192];
-	struct pdmp_x86_xmmrs_t xmmrs;
+	struct kdmp_x86_xmmrs_t xmmrs;
 	uint8_t rsv4[124];
 	uint32_t crs[4];
 	uint8_t rsv5[240];
-	struct pdmp_x86_memmrs_t memrs;
+	struct kdmp_x86_memmrs_t memrs;
 	uint8_t rsv6[60];
 	uint32_t dbgrs[6];
 	uint8_t rsv7[152];
-	struct pdmp_cpuid_t cpuids[32];
+	struct kdmp_cpuid_t cpuids[32];
 	uint8_t rsv8[448];
-	struct pdmp_x86_msr_t mcmsrs[57];
+	struct kdmp_x86_msr_t mcmsrs[57];
 	uint8_t rsv9[84];
-	struct pdmp_x86_msr_t msrs[141];
+	struct kdmp_x86_msr_t msrs[141];
 	uint8_t rsv10[676];
 	uint32_t local_apic_regs[47];
 	uint8_t rsv11[2372];
 };
 
-struct pdmp_kstack_head_t {
+struct kdmp_kstack_head_t {
 	uint32_t sp;
 	uint32_t stack_size;
 };
@@ -215,7 +215,7 @@ struct pdmp_kstack_head_t {
 #define PDMP_OFS_IO_PCIE_RP_MMIO	0x6300
 #define PDMP_SZ_IO_PCIE_RP_MMIO		0x1000
 
-struct pdmp_pcidevregs_t {
+struct kdmp_pcidevregs_t {
 	uint8_t host_cfg[PDMP_SZ_PCI_STD_CFG];
 	uint8_t vga_cfg[PDMP_SZ_PCI_STD_CFG];
 	uint8_t e1000e_cfg[PDMP_SZ_PCI_STD_CFG];
@@ -232,12 +232,12 @@ struct pdmp_pcidevregs_t {
 		(PDMP_OFS_PCI_PCIE_EP_CFG + PDMP_SZ_PCI_PCIE_EP_CFG)];
 };
 
-union pdmp_pcidevregs_u {
+union kdmp_pcidevregs_u {
 	uint8_t raw[PDMP_SZ_PCIREG_INFO];
-	struct pdmp_pcidevregs_t view;
+	struct kdmp_pcidevregs_t view;
 };
 
-struct pdmp_ioregs_t {
+struct kdmp_ioregs_t {
 	uint8_t legacy[PDMP_SZ_IO_LEGACY];
 	uint8_t test_mmio[PDMP_SZ_IO_TEST_MMIO];
 	uint8_t test_pio[PDMP_SZ_IO_TEST_PIO];
@@ -266,34 +266,34 @@ struct pdmp_ioregs_t {
 		(PDMP_OFS_IO_PCIE_RP_MMIO + PDMP_SZ_IO_PCIE_RP_MMIO)];
 };
 
-union pdmp_ioregs_u {
+union kdmp_ioregs_u {
 	uint8_t raw[PDMP_SZ_IOREG_INFO];
-	struct pdmp_ioregs_t view;
+	struct kdmp_ioregs_t view;
 };
 
 #define PDMP_SZ_CORE_RSV	\
-	((24UL<<10) - sizeof(struct pdmp_x86_regs_t) - PDMP_SZ_KSTACK)
+	((24UL<<10) - sizeof(struct kdmp_x86_regs_t) - PDMP_SZ_KSTACK)
 #define PDMP_SZ_DATA_RSV0	\
-	((1UL<<10) - sizeof(struct pdmp_head_t) - sizeof(struct sysinfo))
+	((1UL<<10) - sizeof(struct kdmp_head_t) - sizeof(struct sysinfo))
 #define PDMP_SZ_DATA_RSV1	\
 	((15UL<<10) - PDMP_SZ_PRINTK_BUF)
 
-struct pdmp_core_info_t {
-	struct pdmp_x86_regs_t x86_regs;
+struct kdmp_core_info_t {
+	struct kdmp_x86_regs_t x86_regs;
 	uint8_t kstack[PDMP_SZ_KSTACK];
 	uint8_t rsv[PDMP_SZ_CORE_RSV];
 };
 
-struct pdmp_data_t {
-	struct pdmp_head_t head;
+struct kdmp_data_t {
+	struct kdmp_head_t head;
 	struct sysinfo sysinfo;
 	uint8_t rsv0[PDMP_SZ_DATA_RSV0];
-	struct pdmp_core_info_t status[PDMP_N_STATUS];
+	struct kdmp_core_info_t status[PDMP_N_STATUS];
 	uint8_t printk_buf[PDMP_SZ_PRINTK_BUF];
 	uint8_t rsv1[PDMP_SZ_DATA_RSV1];
 	uint8_t global_tbl[PDMP_SZ_GLOBAL_TBL];
-	union pdmp_pcidevregs_u pcidevregs;
-	union pdmp_ioregs_u ioregs;
+	union kdmp_pcidevregs_u pcidevregs;
+	union kdmp_ioregs_u ioregs;
 };
 
 #define PDMP_SZ_DATA		(1<<20)

@@ -28,12 +28,17 @@ void arch_crash_save_vmcoreinfo(void)
 	VMCOREINFO_SYMBOL(kdmp_active);
 	VMCOREINFO_SYMBOL(kdmp_phys_base);
 	VMCOREINFO_SYMBOL(kdmp_phys_size);
-	VMCOREINFO_SYMBOL(kdmp_pdmp_primary);
-	VMCOREINFO_SYMBOL(kdmp_pdmp_slot);
-	VMCOREINFO_STRUCT_SIZE(pdmp_data_t);
-	VMCOREINFO_OFFSET(pdmp_data_t, head);
-	VMCOREINFO_OFFSET(pdmp_data_t, status);
-	VMCOREINFO_OFFSET(pdmp_data_t, printk_buf);
+
+	/* These symbols live in kdmp core code and are absent from vmlinux when built as a module. */
+#if IS_BUILTIN(CONFIG_CUSTOM_CRASHCUMP)
+	VMCOREINFO_SYMBOL(kdmp_kdmp_primary);
+	VMCOREINFO_SYMBOL(kdmp_kdmp_slot);
+#endif
+
+	VMCOREINFO_STRUCT_SIZE(kdmp_data_t);
+	VMCOREINFO_OFFSET(kdmp_data_t, head);
+	VMCOREINFO_OFFSET(kdmp_data_t, status);
+	VMCOREINFO_OFFSET(kdmp_data_t, printk_buf);
 	vmcoreinfo_append_str("NUMBER(KDMP_PHYS_BASE)=0x%llx\n",
 			      (unsigned long long)kdmp_phys_base);
 	vmcoreinfo_append_str("NUMBER(KDMP_PHYS_SIZE)=0x%llx\n",

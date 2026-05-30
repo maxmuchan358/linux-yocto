@@ -35,22 +35,22 @@ static int kdmp_ioreg_map_count = ARRAY_SIZE(kdmp_ioreg_map);
 static int kdmp_localapic_defs_num = ARRAY_SIZE(kdmp_localapic_defs);
 
 /* local function prototypes */
-static void dump_ecxt_gprs(struct pdmp_data_t *dmpbuf, int status,
+static void dump_ecxt_gprs(struct kdmp_data_t *dmpbuf, int status,
 		struct pt_regs *ecxt_regs);
-static int dump_kstack(struct pdmp_data_t *dmpbuf, int status,
+static int dump_kstack(struct kdmp_data_t *dmpbuf, int status,
 		struct pt_regs *ecxt_regs);
-static int setup_header(struct pdmp_data_t *dmpbuf);
-static int dump_arch_regs(struct pdmp_data_t *dmpbuf, int status);
-static int dump_msrs(struct pdmp_data_t *dmpbuf, int status);
-static int dump_local_apic(struct pdmp_data_t *dmpbuf, int status);
-static int dump_pci_regs(struct pdmp_data_t *dmpbuf);
-static int dump_io_regs(struct pdmp_data_t *dmpbuf);
+static int setup_header(struct kdmp_data_t *dmpbuf);
+static int dump_arch_regs(struct kdmp_data_t *dmpbuf, int status);
+static int dump_msrs(struct kdmp_data_t *dmpbuf, int status);
+static int dump_local_apic(struct kdmp_data_t *dmpbuf, int status);
+static int dump_pci_regs(struct kdmp_data_t *dmpbuf);
+static int dump_io_regs(struct kdmp_data_t *dmpbuf);
 static int kdmp_printk_tail(u8 *dest, int len);
 static void kdmp_dump_gprs(int status);
 static void kdmp_dump_x86(int status);
 static unsigned long kdmp_get_sp(int status, unsigned long sp);
 static bool kdmp_local_apic_read_safe(u32 offset, u32 *value);
-static inline void pdmp_clts(void)
+static inline void kdmp_clts(void)
 {
 	asm volatile ("clts");
 }
@@ -70,12 +70,12 @@ static int kdmp_printk_tail(u8 *dest, int len)
 	return copied;
 }
 
-static void pdmp_set_flag(struct pdmp_data_t *dmpbuf, u32 flag)
+static void kdmp_set_flag(struct kdmp_data_t *dmpbuf, u32 flag)
 {
 	dmpbuf->head.status |= flag;
 }
 
-static void pdmp_set_flag_core(struct pdmp_data_t *dmpbuf, int status, u8 flag)
+static void kdmp_set_flag_core(struct kdmp_data_t *dmpbuf, int status, u8 flag)
 {
 	dmpbuf->head.flags_status[status] |= flag;
 }
@@ -87,7 +87,7 @@ static void pdmp_set_flag_core(struct pdmp_data_t *dmpbuf, int status, u8 flag)
 int kdmp_panicdump_exec(void)
 {
 	int cc;
-	struct pdmp_data_t *dmpbuf;
+	struct kdmp_data_t *dmpbuf;
 
 	/* output address */
 	dmpbuf = kdmp_current_dump_region();
@@ -101,7 +101,7 @@ int kdmp_panicdump_exec(void)
 	/* printk buffer save */
 	cc = kdmp_printk_tail(dmpbuf->printk_buf, sizeof(dmpbuf->printk_buf));
 	DBG("%s: printk get %08x bytes\n", __func__, cc);
-	pdmp_set_flag(dmpbuf, PDMP_OK_PRINTK); /* set data flag */
+	kdmp_set_flag(dmpbuf, PDMP_OK_PRINTK); /* set data flag */
 
 	return NOTIFY_DONE;
 }
@@ -156,7 +156,7 @@ static int dump_check_call_status(int *status)
 
 static unsigned long kdmp_get_sp(int status, unsigned long sp)
 {
-	struct pdmp_data_t *dmpbuf;
+	struct kdmp_data_t *dmpbuf;
 
 	dmpbuf = kdmp_current_dump_region();
 	if (dmpbuf == NULL)
@@ -170,7 +170,7 @@ static unsigned long kdmp_get_sp(int status, unsigned long sp)
 
 static void kdmp_dump_x86(int status)
 {
-	struct pdmp_data_t *dmpbuf;
+	struct kdmp_data_t *dmpbuf;
 	struct pt_regs *ecxt_regs;
 
 	dmpbuf = kdmp_current_dump_region();
@@ -196,8 +196,8 @@ static void kdmp_dump_x86(int status)
  */
 static void kdmp_dump_gprs(int status)
 {
-	struct pdmp_data_t *dmpbuf; /* output address */
-	struct pdmp_x86_gprs_t gprs = {0};
+	struct kdmp_data_t *dmpbuf; /* output address */
+	struct kdmp_x86_gprs_t gprs = {0};
 	register unsigned long current_sp asm ("rsp");
 	unsigned long flags;
 	/* General Purpose Register */
@@ -230,7 +230,7 @@ static void kdmp_dump_gprs(int status)
 	dmpbuf->status[status].x86_regs.gprs = gprs;
 	dmpbuf->status[status].x86_regs.saved_sp = current_sp;
 	/* set data flag */
-	pdmp_set_flag_core(dmpbuf, status, PDMP_OK_GPRS);
+	kdmp_set_flag_core(dmpbuf, status, PDMP_OK_GPRS);
 
 	return;
 }
@@ -238,7 +238,7 @@ static void kdmp_dump_gprs(int status)
 /**
  * get GPRs from excpetion context.
  */
-static void dump_ecxt_gprs(struct pdmp_data_t *dmpbuf, int status,
+static void dump_ecxt_gprs(struct kdmp_data_t *dmpbuf, int status,
 		struct pt_regs *ecxt_regs)
 {
 	struct pt_regs *dst;
@@ -247,14 +247,14 @@ static void dump_ecxt_gprs(struct pdmp_data_t *dmpbuf, int status,
 		dst = &dmpbuf->status[status].x86_regs.excp_gprs;
 		memcpy(dst, ecxt_regs, sizeof(struct pt_regs));
 		/* set data flag */
-		pdmp_set_flag_core(dmpbuf, status, PDMP_OK_GPRS_EXCP);
+		kdmp_set_flag_core(dmpbuf, status, PDMP_OK_GPRS_EXCP);
 	}
 }
 
 /**
  * get kernel stack
  */
-static int dump_kstack(struct pdmp_data_t *dmpbuf, int status,
+static int dump_kstack(struct kdmp_data_t *dmpbuf, int status,
 		struct pt_regs *ecxt_regs)
 {
 	register unsigned long current_sp asm ("rsp");
@@ -262,8 +262,8 @@ static int dump_kstack(struct pdmp_data_t *dmpbuf, int status,
 	unsigned int stack_size = 0;
 	unsigned int area_size = 0;
 	uint8_t *kstack;
-	struct pdmp_kstack_head_t *kstack_head;
-	unsigned int stack_pos = sizeof(struct pdmp_kstack_head_t);
+	struct kdmp_kstack_head_t *kstack_head;
+	unsigned int stack_pos = sizeof(struct kdmp_kstack_head_t);
 
 	/* use sp in exception context */
 	if (ecxt_regs != NULL) {
@@ -286,19 +286,19 @@ static int dump_kstack(struct pdmp_data_t *dmpbuf, int status,
 			stack_size = page_bottom - sp;
 	}
 	/* adjust to dump area size. */
-	area_size = PDMP_SZ_KSTACK - sizeof(struct pdmp_kstack_head_t);
+	area_size = PDMP_SZ_KSTACK - sizeof(struct kdmp_kstack_head_t);
 	if (stack_size > area_size)
 		stack_size = area_size;
 
 	/* select dump area. */
 	kstack = dmpbuf->status[status].kstack;
-	kstack_head = (struct pdmp_kstack_head_t *)kstack;
+	kstack_head = (struct kdmp_kstack_head_t *)kstack;
 	/* copy kernel stack */
 	kstack_head->sp = sp;
 	kstack_head->stack_size = stack_size;
 	memcpy(&kstack[stack_pos], (void *)sp, stack_size);
 	/* set data flag */
-	pdmp_set_flag_core(dmpbuf, status, PDMP_OK_KSTACK);
+	kdmp_set_flag_core(dmpbuf, status, PDMP_OK_KSTACK);
 
 	return 0;
 }
@@ -306,9 +306,9 @@ static int dump_kstack(struct pdmp_data_t *dmpbuf, int status,
 /**
  * setup dump header
  */
-static int setup_header(struct pdmp_data_t *dmpbuf)
+static int setup_header(struct kdmp_data_t *dmpbuf)
 {
-	struct pdmp_head_t *head = &dmpbuf->head;
+	struct kdmp_head_t *head = &dmpbuf->head;
 	struct timespec64 ts;
 
 	/* initialize dump header */
@@ -325,7 +325,7 @@ static int setup_header(struct pdmp_data_t *dmpbuf)
 		head->timeval.tv_usec = -1;
 	}
 	/* set data flag */
-	pdmp_set_flag(dmpbuf, PDMP_OK_HEAD);
+	kdmp_set_flag(dmpbuf, PDMP_OK_HEAD);
 
 	/* sysinfo */
 	memset(&dmpbuf->sysinfo, 0xFF, sizeof(dmpbuf->sysinfo));
@@ -342,19 +342,19 @@ static int setup_header(struct pdmp_data_t *dmpbuf)
 		dmpbuf->sysinfo.freeswap = dmpbuf->sysinfo.totalswap = ~0UL;
 	}
 	/* set data flag */
-	pdmp_set_flag(dmpbuf, PDMP_OK_STAT);
+	kdmp_set_flag(dmpbuf, PDMP_OK_STAT);
 
 	return 0;
 }
 
-static int dump_arch_regs(struct pdmp_data_t *dmpbuf, int status)
+static int dump_arch_regs(struct kdmp_data_t *dmpbuf, int status)
 {
-	struct pdmp_x86_regs_t *x86_regs = &dmpbuf->status[status].x86_regs;
+	struct kdmp_x86_regs_t *x86_regs = &dmpbuf->status[status].x86_regs;
 
 	uint64_t *mmxrs = x86_regs->mmxrs; /* mm0-mm7 */
-	struct pdmp_x86_xmmrs_t *xmmrs = &x86_regs->xmmrs;
+	struct kdmp_x86_xmmrs_t *xmmrs = &x86_regs->xmmrs;
 	uint32_t *crs = x86_regs->crs; /* CR0,CR2-4 */
-	struct pdmp_x86_memmrs_t *memrs = &x86_regs->memrs;
+	struct kdmp_x86_memmrs_t *memrs = &x86_regs->memrs;
 	uint32_t *dbgrs = x86_regs->dbgrs; /* DR0-3,6,7 */
 
 	/* Read Control Registeres */
@@ -378,16 +378,16 @@ static int dump_arch_regs(struct pdmp_data_t *dmpbuf, int status)
 	get_debugreg(dbgrs[5], 7);
 
 	/* set data flag */
-	pdmp_set_flag_core(dmpbuf, status, PDMP_OK_CR_MM_DR);
+	kdmp_set_flag_core(dmpbuf, status, PDMP_OK_CR_MM_DR);
 
 	/* clear Task Swtich bit */
 	if (crs[0] & X86_CR0_TS)
-		pdmp_clts();
+		kdmp_clts();
 
 	/* dump x87 FPU */
 	if ((crs[0] & X86_CR0_EM) == 0) {
 		asm("fnsave %0 ; fwait" : "=m"(x86_regs->fpurs));
-		pdmp_set_flag_core(dmpbuf, status, PDMP_OK_FPU);
+		kdmp_set_flag_core(dmpbuf, status, PDMP_OK_FPU);
 	}
 
 	/* Read MMX Registers */
@@ -399,7 +399,7 @@ static int dump_arch_regs(struct pdmp_data_t *dmpbuf, int status)
 	asm("movq %%mm5, %0" : "=m"(mmxrs[5]));
 	asm("movq %%mm6, %0" : "=m"(mmxrs[6]));
 	asm("movq %%mm7, %0" : "=m"(mmxrs[7]));
-	pdmp_set_flag_core(dmpbuf, status, PDMP_OK_MMX);
+	kdmp_set_flag_core(dmpbuf, status, PDMP_OK_MMX);
 
 	/* Read XMM Registeres */
 	asm("movups %%xmm0, %0" : "=m"(xmmrs->xmm[0]));
@@ -411,14 +411,14 @@ static int dump_arch_regs(struct pdmp_data_t *dmpbuf, int status)
 	asm("movups %%xmm6, %0" : "=m"(xmmrs->xmm[6]));
 	asm("movups %%xmm7, %0" : "=m"(xmmrs->xmm[7]));
 	asm("stmxcsr %0" : "=m"(xmmrs->mxcsr));
-	pdmp_set_flag_core(dmpbuf, status, PDMP_OK_XMM);
+	kdmp_set_flag_core(dmpbuf, status, PDMP_OK_XMM);
 
 	return 0;
 }
 
 /* dump CPUID and MSR */
 static
-void cpuid1(unsigned int leaf, struct pdmp_cpuid_t *r)
+void cpuid1(unsigned int leaf, struct kdmp_cpuid_t *r)
 {
 	asm volatile (
 		"cpuid"
@@ -429,7 +429,7 @@ void cpuid1(unsigned int leaf, struct pdmp_cpuid_t *r)
 }
 
 static
-void cpuid2(unsigned int leaf, unsigned int subleaf, struct pdmp_cpuid_t *r)
+void cpuid2(unsigned int leaf, unsigned int subleaf, struct kdmp_cpuid_t *r)
 {
 	asm volatile (
 		"cpuid"
@@ -442,15 +442,15 @@ void cpuid2(unsigned int leaf, unsigned int subleaf, struct pdmp_cpuid_t *r)
 /**
  * dump MSRs(Model-Specific Registers)
  */
-static int dump_msrs(struct pdmp_data_t *dmpbuf, int status)
+static int dump_msrs(struct kdmp_data_t *dmpbuf, int status)
 {
-	struct pdmp_x86_regs_t *x86_regs = &dmpbuf->status[status].x86_regs;
-	struct pdmp_cpuid_t *cpuids = x86_regs->cpuids;
-	struct pdmp_cpuid_t cpuid;
+	struct kdmp_x86_regs_t *x86_regs = &dmpbuf->status[status].x86_regs;
+	struct kdmp_cpuid_t *cpuids = x86_regs->cpuids;
+	struct kdmp_cpuid_t cpuid;
 	unsigned int leaf, subleaf;
 	unsigned long maxleaf, maxleaf_ex;
-	struct pdmp_x86_msr_t *mcmsrs = x86_regs->mcmsrs;
-	struct pdmp_x86_msr_t *msrs = x86_regs->msrs;
+	struct kdmp_x86_msr_t *mcmsrs = x86_regs->mcmsrs;
+	struct kdmp_x86_msr_t *msrs = x86_regs->msrs;
 	int i;
 	/* CPUID */
 	cpuid1(CPUID_LEAF_MIN, &cpuid);
@@ -481,13 +481,13 @@ static int dump_msrs(struct pdmp_data_t *dmpbuf, int status)
 		msrs[i].err = rdmsrq_safe(kdmp_msr_defs[i].msr, &msrs[i].data);
 	}
 	/* set data flag */
-	pdmp_set_flag_core(dmpbuf, status, PDMP_OK_MSRS);
+	kdmp_set_flag_core(dmpbuf, status, PDMP_OK_MSRS);
 	return 0;
 }
 
-static int dump_local_apic(struct pdmp_data_t *dmpbuf, int status)
+static int dump_local_apic(struct kdmp_data_t *dmpbuf, int status)
 {
-	struct pdmp_x86_regs_t *x86_regs = &dmpbuf->status[status].x86_regs;
+	struct kdmp_x86_regs_t *x86_regs = &dmpbuf->status[status].x86_regs;
 	uint32_t *apic_dst = x86_regs->local_apic_regs;
 	int i;
 
@@ -497,7 +497,7 @@ static int dump_local_apic(struct pdmp_data_t *dmpbuf, int status)
 			apic_dst[i] = 0xffffffff;
 	}
 
-	pdmp_set_flag(dmpbuf, PDMP_OK_LOCAL_APIC);
+	kdmp_set_flag(dmpbuf, PDMP_OK_LOCAL_APIC);
 	return 0;
 }
 
@@ -521,9 +521,9 @@ static bool kdmp_local_apic_read_safe(u32 offset, u32 *value)
 }
 
 
-static int dump_pci_regs(struct pdmp_data_t *dmpbuf)
+static int dump_pci_regs(struct kdmp_data_t *dmpbuf)
 {
-	struct pdmp_reg_map_t *regmap;
+	struct kdmp_reg_map_t *regmap;
 	int i;
 	int ret = -1;
 	u8 *dst;
@@ -555,16 +555,16 @@ static int dump_pci_regs(struct pdmp_data_t *dmpbuf)
 	}
 
 	/* set data flag */
-	pdmp_set_flag(dmpbuf, PDMP_OK_PCI_REGS);
+	kdmp_set_flag(dmpbuf, PDMP_OK_PCI_REGS);
 	return 0;
 }
 
 /**
  * get IO registers
  */
-static int dump_io_regs(struct pdmp_data_t *dmpbuf)
+static int dump_io_regs(struct kdmp_data_t *dmpbuf)
 {
-	struct pdmp_reg_map_t *regmap;
+	struct kdmp_reg_map_t *regmap;
 	u32 pos = 0;
 	u8 *dst;
 	int i;
@@ -596,7 +596,7 @@ static int dump_io_regs(struct pdmp_data_t *dmpbuf)
 		pos += regmap->size;
 	}
 	/* set data flag */
-	pdmp_set_flag(dmpbuf, PDMP_OK_IO_REGS);
+	kdmp_set_flag(dmpbuf, PDMP_OK_IO_REGS);
 	return 0;
 }
 
