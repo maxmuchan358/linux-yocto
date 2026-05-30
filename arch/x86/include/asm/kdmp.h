@@ -165,6 +165,112 @@ struct pdmp_kstack_head_t {
 #define PDMP_SZ_IOREG_INFO	(32UL<<10)
 #define PDMP_SZ_PCIREG_INFO	(128UL<<10)
 
+/* PCI dump region offsets (pcidevregs) */
+#define PDMP_OFS_PCI_HOST_CFG		0x0000
+#define PDMP_OFS_PCI_VGA_CFG		0x0100
+#define PDMP_OFS_PCI_E1000E_CFG		0x0200
+#define PDMP_OFS_PCI_LPC_CFG		0x0300
+#define PDMP_OFS_PCI_SATA_CFG		0x0400
+#define PDMP_OFS_PCI_SMBUS_CFG		0x0500
+#define PDMP_OFS_PCI_VIRTIO_CFG		0x0600
+#define PDMP_OFS_PCI_PCIE_RP_CFG	0x0700
+#define PDMP_OFS_PCI_TEST_CFG		0x0800
+#define PDMP_OFS_PCI_NET_CFG		0x0900
+#define PDMP_OFS_PCI_STOR_CFG		0x0a00
+#define PDMP_OFS_PCI_PCIE_EP_CFG	0x0b00
+#define PDMP_SZ_PCI_STD_CFG		0x0100
+#define PDMP_SZ_PCI_PCIE_EP_CFG		0x0300
+
+/* IO/MMIO dump region offsets (ioregs) */
+#define PDMP_OFS_IO_LEGACY		0x0000
+#define PDMP_SZ_IO_LEGACY		0x0080
+#define PDMP_OFS_IO_TEST_MMIO		0x0080
+#define PDMP_SZ_IO_TEST_MMIO		0x0400
+#define PDMP_OFS_IO_TEST_PIO		0x0480
+#define PDMP_SZ_IO_TEST_PIO		0x0080
+#define PDMP_OFS_IO_NET_MMIO		0x0500
+#define PDMP_SZ_IO_NET_MMIO		0x0200
+#define PDMP_OFS_IO_NET_PIO		0x0700
+#define PDMP_SZ_IO_NET_PIO		0x0040
+#define PDMP_OFS_IO_STOR_MMIO		0x0740
+#define PDMP_SZ_IO_STOR_MMIO		0x0400
+#define PDMP_OFS_IO_PCIE_EP_MMIO	0x0b40
+#define PDMP_SZ_IO_PCIE_EP_MMIO		0x0400
+#define PDMP_OFS_IO_VGA_MMIO		0x1000
+#define PDMP_SZ_IO_VGA_MMIO		0x1000
+#define PDMP_OFS_IO_E1000E_MMIO		0x2000
+#define PDMP_SZ_IO_E1000E_MMIO		0x1000
+#define PDMP_OFS_IO_E1000E_PIO		0x3000
+#define PDMP_SZ_IO_E1000E_PIO		0x0020
+#define PDMP_OFS_IO_SATA_MMIO		0x3100
+#define PDMP_SZ_IO_SATA_MMIO		0x1000
+#define PDMP_OFS_IO_SATA_PIO		0x4100
+#define PDMP_SZ_IO_SATA_PIO		0x0020
+#define PDMP_OFS_IO_VIRTIO_MMIO		0x4200
+#define PDMP_SZ_IO_VIRTIO_MMIO		0x1000
+#define PDMP_OFS_IO_VIRTIO_PMMIO	0x5200
+#define PDMP_SZ_IO_VIRTIO_PMMIO		0x1000
+#define PDMP_OFS_IO_VIRTIO_PIO		0x6200
+#define PDMP_SZ_IO_VIRTIO_PIO		0x0040
+#define PDMP_OFS_IO_PCIE_RP_MMIO	0x6300
+#define PDMP_SZ_IO_PCIE_RP_MMIO		0x1000
+
+struct pdmp_pcidevregs_t {
+	uint8_t host_cfg[PDMP_SZ_PCI_STD_CFG];
+	uint8_t vga_cfg[PDMP_SZ_PCI_STD_CFG];
+	uint8_t e1000e_cfg[PDMP_SZ_PCI_STD_CFG];
+	uint8_t lpc_cfg[PDMP_SZ_PCI_STD_CFG];
+	uint8_t sata_cfg[PDMP_SZ_PCI_STD_CFG];
+	uint8_t smbus_cfg[PDMP_SZ_PCI_STD_CFG];
+	uint8_t virtio_cfg[PDMP_SZ_PCI_STD_CFG];
+	uint8_t pcie_rp_cfg[PDMP_SZ_PCI_STD_CFG];
+	uint8_t test_cfg[PDMP_SZ_PCI_STD_CFG];
+	uint8_t net_cfg[PDMP_SZ_PCI_STD_CFG];
+	uint8_t stor_cfg[PDMP_SZ_PCI_STD_CFG];
+	uint8_t pcie_ep_cfg[PDMP_SZ_PCI_PCIE_EP_CFG];
+	uint8_t rsv[PDMP_SZ_PCIREG_INFO -
+		(PDMP_OFS_PCI_PCIE_EP_CFG + PDMP_SZ_PCI_PCIE_EP_CFG)];
+};
+
+union pdmp_pcidevregs_u {
+	uint8_t raw[PDMP_SZ_PCIREG_INFO];
+	struct pdmp_pcidevregs_t view;
+};
+
+struct pdmp_ioregs_t {
+	uint8_t legacy[PDMP_SZ_IO_LEGACY];
+	uint8_t test_mmio[PDMP_SZ_IO_TEST_MMIO];
+	uint8_t test_pio[PDMP_SZ_IO_TEST_PIO];
+	uint8_t net_mmio[PDMP_SZ_IO_NET_MMIO];
+	uint8_t net_pio[PDMP_SZ_IO_NET_PIO];
+	uint8_t stor_mmio[PDMP_SZ_IO_STOR_MMIO];
+	uint8_t pcie_ep_mmio[PDMP_SZ_IO_PCIE_EP_MMIO];
+	uint8_t rsv0[PDMP_OFS_IO_VGA_MMIO -
+		(PDMP_OFS_IO_PCIE_EP_MMIO + PDMP_SZ_IO_PCIE_EP_MMIO)];
+	uint8_t vga_mmio[PDMP_SZ_IO_VGA_MMIO];
+	uint8_t e1000e_mmio[PDMP_SZ_IO_E1000E_MMIO];
+	uint8_t e1000e_pio[PDMP_SZ_IO_E1000E_PIO];
+	uint8_t rsv1[PDMP_OFS_IO_SATA_MMIO -
+		(PDMP_OFS_IO_E1000E_PIO + PDMP_SZ_IO_E1000E_PIO)];
+	uint8_t sata_mmio[PDMP_SZ_IO_SATA_MMIO];
+	uint8_t sata_pio[PDMP_SZ_IO_SATA_PIO];
+	uint8_t rsv2[PDMP_OFS_IO_VIRTIO_MMIO -
+		(PDMP_OFS_IO_SATA_PIO + PDMP_SZ_IO_SATA_PIO)];
+	uint8_t virtio_mmio[PDMP_SZ_IO_VIRTIO_MMIO];
+	uint8_t virtio_pmmio[PDMP_SZ_IO_VIRTIO_PMMIO];
+	uint8_t virtio_pio[PDMP_SZ_IO_VIRTIO_PIO];
+	uint8_t rsv3[PDMP_OFS_IO_PCIE_RP_MMIO -
+		(PDMP_OFS_IO_VIRTIO_PIO + PDMP_SZ_IO_VIRTIO_PIO)];
+	uint8_t pcie_rp_mmio[PDMP_SZ_IO_PCIE_RP_MMIO];
+	uint8_t rsv4[PDMP_SZ_IOREG_INFO -
+		(PDMP_OFS_IO_PCIE_RP_MMIO + PDMP_SZ_IO_PCIE_RP_MMIO)];
+};
+
+union pdmp_ioregs_u {
+	uint8_t raw[PDMP_SZ_IOREG_INFO];
+	struct pdmp_ioregs_t view;
+};
+
 #define PDMP_SZ_CORE_RSV	\
 	((24UL<<10) - sizeof(struct pdmp_x86_regs_t) - PDMP_SZ_KSTACK)
 #define PDMP_SZ_DATA_RSV0	\
@@ -186,8 +292,8 @@ struct pdmp_data_t {
 	uint8_t printk_buf[PDMP_SZ_PRINTK_BUF];
 	uint8_t rsv1[PDMP_SZ_DATA_RSV1];
 	uint8_t global_tbl[PDMP_SZ_GLOBAL_TBL];
-	uint8_t pcidevregs[PDMP_SZ_PCIREG_INFO];
-	uint8_t ioregs[PDMP_SZ_IOREG_INFO];
+	union pdmp_pcidevregs_u pcidevregs;
+	union pdmp_ioregs_u ioregs;
 };
 
 #define PDMP_SZ_DATA		(1<<20)

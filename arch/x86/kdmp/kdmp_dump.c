@@ -529,7 +529,7 @@ static int dump_pci_regs(struct pdmp_data_t *dmpbuf)
 	u8 *dst;
 	u32 pos = 0;
 
-	dst = dmpbuf->pcidevregs;
+	dst = dmpbuf->pcidevregs.raw;
 	for (i = 0; i < kdmp_pcireg_map_count; ++i) {
 		regmap = &kdmp_pcireg_map[i];
 		if (regmap->pos != 0)
@@ -570,7 +570,7 @@ static int dump_io_regs(struct pdmp_data_t *dmpbuf)
 	int i;
 	int ret = -1;
 
-	dst = dmpbuf->ioregs;
+	dst = dmpbuf->ioregs.raw;
 	for (i = 0; i < kdmp_ioreg_map_count; i++) {
 		regmap = &kdmp_ioreg_map[i];
 		if (regmap->pos != 0)
