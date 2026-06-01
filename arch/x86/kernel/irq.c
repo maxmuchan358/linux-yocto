@@ -24,6 +24,7 @@
 #include <asm/thermal.h>
 #include <asm/posted_intr.h>
 #include <asm/irq_remapping.h>
+#include <asm/kdmp.h>
 
 #if defined(CONFIG_X86_LOCAL_APIC) || defined(CONFIG_X86_THERMAL_VECTOR)
 #define CREATE_TRACE_POINTS
@@ -318,6 +319,7 @@ static __always_inline bool call_irq_handler(int vector, struct pt_regs *regs)
 DEFINE_IDTENTRY_IRQ(common_interrupt)
 {
 	struct pt_regs *old_regs = set_irq_regs(regs);
+	kdmp_capture_event(regs, KDMP_EVENT_IRQ, vector, 0);
 
 	/* entry code tells RCU that we're not quiescent.  Check it. */
 	RCU_LOCKDEP_WARN(!rcu_is_watching(), "IRQ failed to wake up RCU");

@@ -880,6 +880,7 @@ static int crash_nmi_callback(unsigned int val, struct pt_regs *regs)
 #if IS_ENABLED(CONFIG_CUSTOM_CRASHCUMP)
 	if (cpu >= 0 && cpu < PDMP_N_CORE)
 		kdmp_ipi_regs[cpu] = regs;
+	kdmp_capture_event(regs, KDMP_EVENT_IPI, val, 0);
 	if (ipi_dump_gprs)
 		ipi_dump_gprs();
 #endif

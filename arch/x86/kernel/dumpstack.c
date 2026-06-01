@@ -33,9 +33,11 @@ static struct pt_regs exec_summary_regs;
 struct pt_regs *kdmp_ecxt_regs[PDMP_N_CORE];
 struct pt_regs *kdmp_nmi_regs[PDMP_N_CORE];
 struct pt_regs *kdmp_ipi_regs[PDMP_N_CORE];
+kdmp_event_hook_t kdmp_event_hook;
 EXPORT_SYMBOL_GPL(kdmp_ecxt_regs);
 EXPORT_SYMBOL_GPL(kdmp_nmi_regs);
 EXPORT_SYMBOL_GPL(kdmp_ipi_regs);
+EXPORT_SYMBOL_GPL(kdmp_event_hook);
 #endif
 
 bool noinstr in_task_stack(unsigned long *stack, struct task_struct *task,

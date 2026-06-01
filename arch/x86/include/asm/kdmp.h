@@ -22,6 +22,23 @@
 
 #define PDMP_N_CORE			4
 #define PDMP_N_STATUS			4
+
+enum kdmp_event_source {
+	KDMP_EVENT_EXCEPTION = 1,
+	KDMP_EVENT_PAGE_FAULT = 2,
+	KDMP_EVENT_IRQ = 3,
+	KDMP_EVENT_NMI = 4,
+	KDMP_EVENT_IPI = 5,
+	KDMP_EVENT_PANIC = 6,
+	KDMP_EVENT_DIRECT_PANIC = 7,
+	KDMP_EVENT_SYSVEC = 8,
+};
+
+#ifdef __KERNEL__
+typedef void (*kdmp_event_hook_t)(struct pt_regs *regs, u32 source, u32 id,
+				   unsigned long data);
+#endif
+
 /* Location of the reserved area for the panic dump */
 extern struct resource kdmp_res;
 extern bool kdmp_active;
@@ -33,9 +50,26 @@ extern u32 kdmp_apic_read(u32 reg);
 extern struct pt_regs *kdmp_ecxt_regs[PDMP_N_CORE];
 extern struct pt_regs *kdmp_nmi_regs[PDMP_N_CORE];
 extern struct pt_regs *kdmp_ipi_regs[PDMP_N_CORE];
+#if IS_ENABLED(CONFIG_CUSTOM_CRASHCUMP)
+extern kdmp_event_hook_t kdmp_event_hook;
 /* Typed symbols to inspect custom dump slots directly in crash. */
 extern struct kdmp_data_t *kdmp_kdmp_primary;
 extern struct kdmp_data_t *kdmp_kdmp_slot[PDMP_N_CORE];
+
+static __always_inline void kdmp_capture_event(struct pt_regs *regs, u32 source,
+					       u32 id, unsigned long data)
+{
+	kdmp_event_hook_t hook = READ_ONCE(kdmp_event_hook);
+
+	if (unlikely(hook))
+		hook(regs, source, id, data);
+}
+#else
+static __always_inline void kdmp_capture_event(struct pt_regs *regs, u32 source,
+					       u32 id, unsigned long data)
+{
+}
+#endif
 
 /**
  * Panic Dump Format Identifier
@@ -277,6 +311,35 @@ union kdmp_ioregs_u {
 	((1UL<<10) - sizeof(struct kdmp_head_t) - sizeof(struct sysinfo))
 #define PDMP_SZ_DATA_RSV1	\
 	((15UL<<10) - PDMP_SZ_PRINTK_BUF)
+
+#define KDMP_LIVE_MAGIC			0x4556494c /* LIVE */
+#define KDMP_LIVE_VERSION		1
+#define KDMP_LIVE_NR_EVENTS		48
+
+#ifdef __KERNEL__
+struct kdmp_live_event_t {
+	u32 committed;
+	u32 cpu;
+	u32 source;
+	u32 id;
+	u64 timestamp;
+	u64 data;
+	u64 ip;
+	u64 sp;
+	u64 flags;
+	struct pt_regs regs;
+};
+
+struct kdmp_live_ring_t {
+	u32 magic;
+	u32 version;
+	u32 entry_size;
+	u32 entry_count;
+	u64 write_seq;
+	u64 dropped;
+	struct kdmp_live_event_t events[KDMP_LIVE_NR_EVENTS];
+};
+#endif
 
 struct kdmp_core_info_t {
 	struct kdmp_x86_regs_t x86_regs;

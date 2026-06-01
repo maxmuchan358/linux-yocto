@@ -35,6 +35,7 @@
 #include <asm/irq_stack.h>
 #include <asm/fred.h>
 #include <asm/sev.h>			/* snp_dump_hva_rmpentry()	*/
+#include <asm/kdmp.h>
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/exceptions.h>
@@ -1462,6 +1463,7 @@ static __always_inline void
 handle_page_fault(struct pt_regs *regs, unsigned long error_code,
 			      unsigned long address)
 {
+	kdmp_capture_event(regs, KDMP_EVENT_PAGE_FAULT, (u32)error_code, address);
 	trace_page_fault_entries(regs, error_code, address);
 
 	if (unlikely(kmmio_fault(regs, address)))

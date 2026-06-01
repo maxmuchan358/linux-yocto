@@ -98,6 +98,10 @@ extern int kdmp_conf_reg_info(void);
 extern int kdmp_read_reg(int regid, int offset, void *buf, int size);
 extern int kdmp_write_reg(int regid, int offset, u32 data, int size);
 
+int kdmp_live_init(void);
+void kdmp_live_capture(struct pt_regs *regs, u32 source, u32 id,
+		       unsigned long data);
+
 /* in arch/x86/pci/mmconfig_32.c*/
 extern int kdmp_pci_mmcfg_read(unsigned int seg, unsigned int bdf,
 		int reg, int len, u8 *value);

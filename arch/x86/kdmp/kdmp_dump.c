@@ -602,18 +602,30 @@ static int dump_io_regs(struct kdmp_data_t *dmpbuf)
 
 void dump_call_panic(void)
 {
+	int cpu = raw_smp_processor_id();
+
+	if (cpu >= 0 && cpu < PDMP_N_CORE)
+		kdmp_live_capture(kdmp_ecxt_regs[cpu], KDMP_EVENT_PANIC, 0, 0);
 	kdmp_dump_gprs(KDMP_PANIC);
 	kdmp_dump_x86(KDMP_PANIC);
 }
 
 void dump_call_ipi(void)
 {
+	int cpu = raw_smp_processor_id();
+
+	if (cpu >= 0 && cpu < PDMP_N_CORE)
+		kdmp_live_capture(kdmp_ipi_regs[cpu], KDMP_EVENT_IPI, 0, 0);
 	kdmp_dump_gprs(KDMP_IPI);
 	kdmp_dump_x86(KDMP_IPI);
 }
 
 void dump_call_nmi(void)
 {
+	int cpu = raw_smp_processor_id();
+
+	if (cpu >= 0 && cpu < PDMP_N_CORE)
+		kdmp_live_capture(kdmp_nmi_regs[cpu], KDMP_EVENT_NMI, 0, 0);
 	kdmp_dump_gprs(KDMP_NMI);
 	kdmp_dump_x86(KDMP_NMI);
 }

@@ -363,6 +363,9 @@ static noinstr void default_do_nmi(struct pt_regs *regs)
 	unsigned char reason = 0;
 	int handled;
 	bool b2b = false;
+#if IS_ENABLED(CONFIG_CUSTOM_CRASHCUMP)
+	int cpu;
+#endif
 
 	/*
 	 * Back-to-back NMIs are detected by comparing the RIP of the
@@ -412,7 +415,7 @@ static noinstr void default_do_nmi(struct pt_regs *regs)
 	}
 
 #if IS_ENABLED(CONFIG_CUSTOM_CRASHCUMP)
-	int cpu = raw_smp_processor_id();
+	cpu = raw_smp_processor_id();
 
 	if (cpu >= 0 && cpu < PDMP_N_CORE)
 		kdmp_nmi_regs[cpu] = regs;

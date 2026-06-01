@@ -85,6 +85,8 @@ static int __init kdmp_initialize(void)
 		if (!kdmp_buf[i]) {
 			pr_err("kdmp: failed to map dump buffer %d at %pa size %#x\n",
 			       i, &phys_addr, PDMP_SZ_DATA);
+			while (i--)
+				memunmap(kdmp_buf[i]);
 			return -ENOMEM;
 		}
 		kdmp_kdmp_slot[i] = (struct kdmp_data_t *)kdmp_buf[i];
@@ -102,6 +104,7 @@ static int __init kdmp_initialize(void)
 	/* set call back handler to x86 regs dump */
 	panic_dump_gprs = dump_call_panic;
 	nmi_dump_gprs = dump_call_nmi;
+	kdmp_event_hook = kdmp_live_capture;
 	#ifdef CONFIG_SMP
 	ipi_dump_gprs = dump_call_ipi;
 	#endif
@@ -128,8 +131,12 @@ static int __init kdmp_initialize(void)
  */
 static int __init kdmp_configure(void)
 {
+	if (kdmp_res.end <= kdmp_res.start)
+		return -ENODEV;
+
 	/* coufigure register info. */
 	kdmp_conf_reg_info();
+	kdmp_live_init();
 
 	kdmp_active = true;
 	kdmp_panic_ready = 1;

@@ -181,7 +181,7 @@ static struct crash_mem *fill_up_crash_elf_data(void)
 	 */
 	nr_ranges += 3 + crashk_cma_cnt;
 #if IS_ENABLED(CONFIG_CUSTOM_CRASHCUMP)
-	if (kdmp_active && kdmp_res.end > kdmp_res.start)
+	if (kdmp_res.end > kdmp_res.start)
 		nr_ranges++;
 #endif
 	cmem = vzalloc(struct_size(cmem, ranges, nr_ranges));
@@ -226,7 +226,7 @@ static int elf_header_exclude_ranges(struct crash_mem *cmem)
 	}
 
 #if IS_ENABLED(CONFIG_CUSTOM_CRASHCUMP)
-	if (kdmp_active && kdmp_res.end > kdmp_res.start) {
+	if (kdmp_res.end > kdmp_res.start) {
 		ret = crash_exclude_mem_range(cmem, kdmp_res.start, kdmp_res.end);
 		if (ret)
 			return ret;

@@ -69,6 +69,7 @@
 #include <asm/tdx.h>
 #include <asm/cfi.h>
 #include <asm/msr.h>
+#include <asm/kdmp.h>
 
 #ifdef CONFIG_X86_64
 #include <asm/x86_init.h>
@@ -260,6 +261,7 @@ static void do_error_trap(struct pt_regs *regs, long error_code, char *str,
 	unsigned long trapnr, int signr, int sicode, void __user *addr)
 {
 	RCU_LOCKDEP_WARN(!rcu_is_watching(), "entry code didn't wake RCU");
+	kdmp_capture_event(regs, KDMP_EVENT_EXCEPTION, (u32)trapnr, error_code);
 
 	if (notify_die(DIE_TRAP, str, regs, error_code, trapnr, signr) !=
 			NOTIFY_STOP) {
