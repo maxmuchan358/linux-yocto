@@ -314,7 +314,8 @@ union kdmp_ioregs_u {
 
 #define KDMP_LIVE_MAGIC			0x4556494c /* LIVE */
 #define KDMP_LIVE_VERSION		1
-#define KDMP_LIVE_NR_EVENTS		48
+/* 31 events × 224 bytes + 32 byte header = 6976 bytes ≤ PDMP_SZ_DATA_RSV1 (7168) */
+#define KDMP_LIVE_NR_EVENTS		31
 
 #ifdef __KERNEL__
 struct kdmp_live_event_t {

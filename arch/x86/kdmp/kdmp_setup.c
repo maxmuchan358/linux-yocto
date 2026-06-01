@@ -104,7 +104,7 @@ static int __init kdmp_initialize(void)
 	/* set call back handler to x86 regs dump */
 	panic_dump_gprs = dump_call_panic;
 	nmi_dump_gprs = dump_call_nmi;
-	kdmp_event_hook = kdmp_live_capture;
+	WRITE_ONCE(kdmp_event_hook, kdmp_live_capture);
 	#ifdef CONFIG_SMP
 	ipi_dump_gprs = dump_call_ipi;
 	#endif
@@ -160,9 +160,20 @@ static int __init kdmp_module_init(void)
 }
 
 module_init(kdmp_module_init);
+
+static void __exit kdmp_module_exit(void)
+{
+	WRITE_ONCE(kdmp_event_hook, NULL);
+	kdmp_live_fini();
+}
+module_exit(kdmp_module_exit);
+
 /*
- * Unloading is intentionally unsupported: core crash paths retain callback
- * hooks and the early reserved kdmp memory outlives the module lifecycle.
+ * Core crash hooks (panic_dump_gprs, nmi_dump_gprs, ipi_dump_gprs) and the
+ * panic notifier are intentionally not cleared on exit: the reserved kdmp
+ * memory outlives the module and those hooks must remain valid.  Only the
+ * procfs entry and the live-capture hook (which points into module text) are
+ * cleaned up.
  */
 MODULE_DESCRIPTION("x86 custom crashdump support");
 MODULE_LICENSE("GPL");

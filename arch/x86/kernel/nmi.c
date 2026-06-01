@@ -417,10 +417,11 @@ static noinstr void default_do_nmi(struct pt_regs *regs)
 #if IS_ENABLED(CONFIG_CUSTOM_CRASHCUMP)
 	cpu = raw_smp_processor_id();
 
-	if (cpu >= 0 && cpu < PDMP_N_CORE)
+	if (cpu >= 0 && cpu < PDMP_N_CORE) {
 		kdmp_nmi_regs[cpu] = regs;
-	if (nmi_dump_gprs)
-		nmi_dump_gprs();
+		if (nmi_dump_gprs)
+			nmi_dump_gprs();
+	}
 #endif
 
 	/*

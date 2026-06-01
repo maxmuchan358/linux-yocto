@@ -99,6 +99,7 @@ extern int kdmp_read_reg(int regid, int offset, void *buf, int size);
 extern int kdmp_write_reg(int regid, int offset, u32 data, int size);
 
 int kdmp_live_init(void);
+void kdmp_live_fini(void);
 void kdmp_live_capture(struct pt_regs *regs, u32 source, u32 id,
 		       unsigned long data);
 

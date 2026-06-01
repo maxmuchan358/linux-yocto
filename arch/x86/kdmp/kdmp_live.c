@@ -15,6 +15,9 @@
 #include <asm/kdmp.h>
 #include "kdmp_local.h"
 
+/* Ensure the ring fits inside rsv1 at compile time. */
+BUILD_BUG_ON(sizeof(struct kdmp_live_ring_t) > PDMP_SZ_DATA_RSV1);
+
 #define KDMP_LIVE_PROC_NAME "kdmp_live_ptregs"
 
 static struct proc_dir_entry *kdmp_live_proc;
@@ -50,10 +53,6 @@ static struct kdmp_live_ring_t *kdmp_live_ring(struct kdmp_data_t *dmpbuf)
 
 static void kdmp_live_ring_init(struct kdmp_live_ring_t *ring)
 {
-	if (READ_ONCE(ring->magic) == KDMP_LIVE_MAGIC &&
-	    READ_ONCE(ring->version) == KDMP_LIVE_VERSION)
-		return;
-
 	memset(ring, 0, sizeof(*ring));
 	ring->magic = KDMP_LIVE_MAGIC;
 	ring->version = KDMP_LIVE_VERSION;
@@ -78,7 +77,6 @@ void kdmp_live_capture(struct pt_regs *regs, u32 source, u32 id,
 		return;
 
 	ring = kdmp_live_ring(dmpbuf);
-	kdmp_live_ring_init(ring);
 
 	seq = READ_ONCE(ring->write_seq);
 	idx = (u32)(seq % KDMP_LIVE_NR_EVENTS);
@@ -99,10 +97,11 @@ void kdmp_live_capture(struct pt_regs *regs, u32 source, u32 id,
 
 	smp_wmb();
 	WRITE_ONCE(ev->committed, (u32)(seq + 1));
+	smp_wmb();
 	WRITE_ONCE(ring->write_seq, seq + 1);
 
-	if ((seq + 1) > KDMP_LIVE_NR_EVENTS)
-		ring->dropped++;
+	if (seq >= KDMP_LIVE_NR_EVENTS)
+		WRITE_ONCE(ring->dropped, READ_ONCE(ring->dropped) + 1);
 }
 
 static int kdmp_live_proc_show(struct seq_file *m, void *v)
@@ -129,30 +128,49 @@ static int kdmp_live_proc_show(struct seq_file *m, void *v)
 		}
 
 		write_seq = READ_ONCE(ring->write_seq);
-		start = (write_seq > 8) ? (write_seq - 8) : 0;
+		start = (write_seq > KDMP_LIVE_NR_EVENTS) ?
+			(write_seq - KDMP_LIVE_NR_EVENTS) : 0;
 
 		seq_printf(m,
 			   "cpu=%d write_seq=%llu dropped=%llu entry_count=%u\n",
 			   cpu, (unsigned long long)write_seq,
-			   (unsigned long long)READ_ONCE(ring->dropped), ring->entry_count);
+			   (unsigned long long)READ_ONCE(ring->dropped),
+			   KDMP_LIVE_NR_EVENTS);
 
 		for (i = start; i < write_seq; i++) {
 			u32 idx = (u32)(i % KDMP_LIVE_NR_EVENTS);
 			struct kdmp_live_event_t *ev = &ring->events[idx];
-			u32 committed = READ_ONCE(ev->committed);
+			u32 committed;
+			u32 src, id_val;
+			unsigned long data_val;
+			unsigned long long ip_val, sp_val, flags_val, ts_val;
 
+			committed = READ_ONCE(ev->committed);
 			if (committed != (u32)(i + 1))
+				continue;
+
+			smp_rmb();
+
+			src      = ev->source;
+			id_val   = ev->id;
+			data_val = ev->data;
+			ip_val   = ev->ip;
+			sp_val   = ev->sp;
+			flags_val = ev->flags;
+			ts_val   = ev->timestamp;
+
+			smp_rmb();
+
+			/* discard if the slot was overwritten while we read */
+			if (READ_ONCE(ev->committed) != committed)
 				continue;
 
 			seq_printf(m,
 				   "  seq=%llu src=%s(%u) id=%u data=0x%lx ip=0x%llx sp=0x%llx flags=0x%llx ts=%llu\n",
 				   (unsigned long long)(i + 1),
-				   kdmp_event_name(ev->source), ev->source,
-				   ev->id, (unsigned long)ev->data,
-				   (unsigned long long)ev->ip,
-				   (unsigned long long)ev->sp,
-				   (unsigned long long)ev->flags,
-				   (unsigned long long)ev->timestamp);
+				   kdmp_event_name(src), src,
+				   id_val, data_val,
+				   ip_val, sp_val, flags_val, ts_val);
 		}
 	}
 
@@ -161,6 +179,17 @@ static int kdmp_live_proc_show(struct seq_file *m, void *v)
 
 int kdmp_live_init(void)
 {
+	int cpu;
+
+	/* Initialise each per-CPU ring once here so kdmp_live_capture
+	 * never calls memset on the hot path. */
+	for (cpu = 0; cpu < PDMP_N_CORE; cpu++) {
+		struct kdmp_data_t *dmpbuf = kdmp_kdmp_slot[cpu];
+
+		if (dmpbuf)
+			kdmp_live_ring_init(kdmp_live_ring(dmpbuf));
+	}
+
 #if IS_ENABLED(CONFIG_PROC_FS)
 	if (!kdmp_live_proc)
 		kdmp_live_proc = proc_create_single(KDMP_LIVE_PROC_NAME, 0444, NULL,
@@ -169,4 +198,14 @@ int kdmp_live_init(void)
 		pr_warn("kdmp: failed to create /proc/%s\n", KDMP_LIVE_PROC_NAME);
 #endif
 	return 0;
+}
+
+void kdmp_live_fini(void)
+{
+#if IS_ENABLED(CONFIG_PROC_FS)
+	if (kdmp_live_proc) {
+		proc_remove(kdmp_live_proc);
+		kdmp_live_proc = NULL;
+	}
+#endif
 }
