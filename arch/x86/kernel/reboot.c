@@ -26,6 +26,7 @@
 #include <asm/cpu.h>
 #include <asm/kdmp.h>
 #include <asm/nmi.h>
+#include <asm/special_insns.h>
 #include <asm/smp.h>
 
 #include <linux/ctype.h>
@@ -877,13 +878,16 @@ static int crash_nmi_callback(unsigned int val, struct pt_regs *regs)
 	local_irq_disable();
 
 #if IS_ENABLED(CONFIG_CUSTOM_CRASHCUMP)
-	kdmp_ipi_regs[cpu] = regs;
+	if (cpu >= 0 && cpu < PDMP_N_CORE)
+		kdmp_ipi_regs[cpu] = regs;
 	if (ipi_dump_gprs)
 		ipi_dump_gprs();
 #endif
 
 	if (shootdown_callback)
 		shootdown_callback(cpu, regs);
+
+	wbinvd();
 
 	/*
 	 * Prepare the CPU for reboot _after_ invoking the callback so that the

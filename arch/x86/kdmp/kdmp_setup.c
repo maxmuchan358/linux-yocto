@@ -4,6 +4,7 @@
 
 #include <linux/module.h>
 #include <linux/kernel.h>
+#include <linux/io.h>
 #include <linux/ioport.h>
 #include <linux/panic_notifier.h>
 #include <linux/smp.h>
@@ -50,7 +51,7 @@ static int kdmp_panicdump(struct notifier_block *this,
 	return NOTIFY_DONE;
 }
 
-/* panic dump output (virtual addresses by ioremap()) */
+/* panic dump output mapped from reserved System RAM */
 void *kdmp_buf[PDMP_N_CORE] = { NULL, NULL, NULL, NULL };
 
 struct kdmp_data_t *kdmp_kdmp_primary;
@@ -72,14 +73,22 @@ static int __init kdmp_initialize(void)
 	kdmp_panic_ready = 0;
 	kdmp_active = false;
 
+	if (kdmp_res.end <= kdmp_res.start) {
+		pr_warn("kdmp: reserved range unavailable; custom crashdump disabled\n");
+		return -ENODEV;
+	}
+
 	/* initialize output region */
 	for (i = 0; i < PDMP_N_CORE; i++) {
 		phys_addr = kdmp_res.start + (PDMP_SZ_DATA * i);
-		kdmp_buf[i] = ioremap(phys_addr, PDMP_SZ_DATA);
+		kdmp_buf[i] = memremap(phys_addr, PDMP_SZ_DATA, MEMREMAP_WB);
+		if (!kdmp_buf[i]) {
+			pr_err("kdmp: failed to map dump buffer %d at %pa size %#x\n",
+			       i, &phys_addr, PDMP_SZ_DATA);
+			return -ENOMEM;
+		}
 		kdmp_kdmp_slot[i] = (struct kdmp_data_t *)kdmp_buf[i];
-
-		if (kdmp_buf[i] != NULL)
-			memset(kdmp_buf[i], 0, PDMP_SZ_DATA);
+		memset(kdmp_buf[i], 0, PDMP_SZ_DATA);
 	}
 	kdmp_kdmp_primary = kdmp_kdmp_slot[0];
 

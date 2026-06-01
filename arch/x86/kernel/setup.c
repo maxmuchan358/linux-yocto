@@ -16,6 +16,7 @@
 #include <linux/init_ohci1394_dma.h>
 #include <linux/initrd.h>
 #include <linux/iscsi_ibft.h>
+#include <linux/kmemleak.h>
 #include <linux/memblock.h>
 #include <linux/panic_notifier.h>
 #include <linux/pci.h>
@@ -637,7 +638,8 @@ struct resource kdmp_res = {
 	.name = "custom crashdump",
 	.start = 0,
 	.end = 0,
-	.flags = IORESOURCE_BUSY | IORESOURCE_MEM
+	.flags = IORESOURCE_BUSY | IORESOURCE_MEM,
+	.desc = IORES_DESC_RESERVED,
 };
 EXPORT_SYMBOL_GPL(kdmp_res);
 
@@ -659,9 +661,16 @@ static void __init reserve_panic_dump(void)
 
 	kdmp_base = memblock_phys_alloc_range(kdmp_size, PMD_SIZE, 0, alloc_end);
 	if (!kdmp_base) {
-		pr_info("kdmp reservation failed - no free range found\n");
+		kdmp_phys_base = 0;
+		kdmp_phys_size = 0;
+		pr_warn("kdmp reservation failed - no free range found (size=%#llx limit=%pa)\n",
+			kdmp_size, &alloc_end);
 		return;
 	}
+
+	e820__range_update(kdmp_base, kdmp_size, E820_TYPE_RAM,
+				   E820_TYPE_RESERVED);
+	e820__update_table(e820_table);
 
 	pr_info("Reserving %luMB of memory at %luMB for kdmp dynamically (System RAM: %luMB)\n",
 		(unsigned long)(kdmp_size >> 20),
@@ -669,6 +678,7 @@ static void __init reserve_panic_dump(void)
 		(unsigned long)(total_mem >> 20));
 	kdmp_res.start = kdmp_base;
 	kdmp_res.end = kdmp_base + kdmp_size - 1;
+	kmemleak_ignore_phys(kdmp_base);
 	kdmp_phys_base = kdmp_res.start;
 	kdmp_phys_size = resource_size(&kdmp_res);
 	insert_resource(&iomem_resource, &kdmp_res);
@@ -1171,6 +1181,10 @@ void __init setup_arch(char **cmdline_p)
 	 */
 	x86_platform.realmode_reserve();
 
+#if IS_ENABLED(CONFIG_CUSTOM_CRASHCUMP)
+	reserve_panic_dump();
+#endif
+
 	init_mem_mapping();
 
 	/*
@@ -1249,10 +1263,6 @@ void __init setup_arch(char **cmdline_p)
 	 * won't consume hotpluggable memory.
 	 */
 	arch_reserve_crashkernel();
-
-#if IS_ENABLED(CONFIG_CUSTOM_CRASHCUMP)
-	reserve_panic_dump();
-#endif
 
 	if (!early_xdbc_setup_hardware())
 		early_xdbc_register_console();

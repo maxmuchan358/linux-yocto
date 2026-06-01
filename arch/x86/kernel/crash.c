@@ -42,6 +42,7 @@
 #include <asm/crash.h>
 #include <asm/cmdline.h>
 #include <asm/kdmp.h>
+#include <asm/special_insns.h>
 #include <asm/sev.h>
 
 /* Used while preparing memory map entries for second kernel */
@@ -142,6 +143,7 @@ void native_machine_crash_shutdown(struct pt_regs *regs)
 	x86_platform.guest.enc_kexec_finish();
 
 	crash_save_cpu(regs, smp_processor_id());
+	wbinvd();
 }
 
 #if defined(CONFIG_KEXEC_FILE) || defined(CONFIG_CRASH_HOTPLUG)

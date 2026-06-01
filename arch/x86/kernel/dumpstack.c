@@ -441,7 +441,10 @@ static int __die_body(const char *str, struct pt_regs *regs, long err)
 {
 
 #if IS_ENABLED(CONFIG_CUSTOM_CRASHCUMP)
-	kdmp_ecxt_regs[raw_smp_processor_id()] = regs;
+	int cpu = raw_smp_processor_id();
+
+	if (cpu >= 0 && cpu < PDMP_N_CORE)
+		kdmp_ecxt_regs[cpu] = regs;
 #endif
 
 	show_regs(regs);
