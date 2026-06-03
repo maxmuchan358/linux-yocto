@@ -95,11 +95,9 @@ static int __init kdmp_initialize(void)
 	kdmp_kdmp_primary = kdmp_kdmp_slot[0];
 
 	/* init pointer at arch/x86/kernel/dumpstack.c */
-#if IS_ENABLED(CONFIG_CUSTOM_CRASHCUMP)
 	memset(kdmp_ecxt_regs, 0, sizeof(kdmp_ecxt_regs));
 	memset(kdmp_nmi_regs, 0, sizeof(kdmp_nmi_regs));
 	memset(kdmp_ipi_regs, 0, sizeof(kdmp_ipi_regs));
-#endif
 
 	/* set call back handler to x86 regs dump */
 	panic_dump_gprs = dump_call_panic;
@@ -116,10 +114,9 @@ static int __init kdmp_initialize(void)
 	atomic_notifier_chain_register(
 		&panic_notifier_list, &kdmp_panic_notifier);
 
-	printk(KERN_INFO "kdmp: init panicdump "
-			"notifier=%p buf0=%p buf1=%p buf2=%p buf3=%p\n",
-			kdmp_panicdump,
-			kdmp_buf[0], kdmp_buf[1], kdmp_buf[2], kdmp_buf[3]);
+	pr_info("kdmp: init panicdump notifier=%p buf0=%p buf1=%p buf2=%p buf3=%p\n",
+		kdmp_panicdump,
+		kdmp_buf[0], kdmp_buf[1], kdmp_buf[2], kdmp_buf[3]);
 
 	return 0;
 }
@@ -134,7 +131,7 @@ static int __init kdmp_configure(void)
 	if (kdmp_res.end <= kdmp_res.start)
 		return -ENODEV;
 
-	/* coufigure register info. */
+	/* configure register info. */
 	kdmp_conf_reg_info();
 	kdmp_live_init();
 
@@ -190,13 +187,6 @@ static void __exit kdmp_module_exit(void)
 }
 module_exit(kdmp_module_exit);
 
-/*
- * Core crash hooks (panic_dump_gprs, nmi_dump_gprs, ipi_dump_gprs) and the
- * panic notifier are intentionally not cleared on exit: the reserved kdmp
- * memory outlives the module and those hooks must remain valid.  Only the
- * procfs entry and the live-capture hook (which points into module text) are
- * cleaned up.
- */
 MODULE_DESCRIPTION("x86 custom crashdump support");
 MODULE_LICENSE("GPL");
 #endif
