@@ -325,18 +325,11 @@ static int prepare_elf_headers(void **addr, unsigned long *sz,
 
 	/* By default prepare 64bit headers */
 	ret = crash_prepare_elf64_headers(cmem, IS_ENABLED(CONFIG_X86_64), addr, sz);
-#if IS_ENABLED(CONFIG_CUSTOM_CRASHCUMP)
-	{
-		bool active = READ_ONCE(kdmp_active);
-
-		if (!ret)
-			ret = append_kdmp_load_header(addr, sz);
-		if (!ret && active && kdmp_res.end > kdmp_res.start)
-			(*nr_mem_ranges)++;
-	}
-#else
 	if (!ret)
 		ret = append_kdmp_load_header(addr, sz);
+#if IS_ENABLED(CONFIG_CUSTOM_CRASHCUMP)
+	if (!ret && READ_ONCE(kdmp_active) && kdmp_res.end > kdmp_res.start)
+		(*nr_mem_ranges)++;
 #endif
 
 out:
