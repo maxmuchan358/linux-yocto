@@ -71,7 +71,7 @@ static int __init kdmp_initialize(void)
 
 	/* clear initialized flag */
 	kdmp_panic_ready = 0;
-	kdmp_active = false;
+	WRITE_ONCE(kdmp_active, false);
 
 	if (kdmp_res.end <= kdmp_res.start) {
 		pr_warn("kdmp: reserved range unavailable; custom crashdump disabled\n");
@@ -138,7 +138,7 @@ static int __init kdmp_configure(void)
 	kdmp_conf_reg_info();
 	kdmp_live_init();
 
-	kdmp_active = true;
+	WRITE_ONCE(kdmp_active, true);
 	kdmp_panic_ready = 1;
 
 	return 0;
@@ -166,7 +166,7 @@ static void __exit kdmp_module_exit(void)
 	int i;
 
 	kdmp_panic_ready = 0;
-	kdmp_active = false;
+	WRITE_ONCE(kdmp_active, false);
 
 	atomic_notifier_chain_unregister(&panic_notifier_list,
 					 &kdmp_panic_notifier);
