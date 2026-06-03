@@ -17,6 +17,7 @@
 #include <linux/initrd.h>
 #include <linux/iscsi_ibft.h>
 #include <linux/kmemleak.h>
+#include <linux/mm.h>
 #include <linux/memblock.h>
 #include <linux/panic_notifier.h>
 #include <linux/pci.h>
@@ -634,11 +635,13 @@ static void __init arch_reserve_crashkernel(void)
 }
 
 #if IS_ENABLED(CONFIG_CUSTOM_CRASHCUMP)
+#define KDMP_RESERVE_MEM_NAME "kdmp"
+
 struct resource kdmp_res = {
 	.name = "custom crashdump",
 	.start = 0,
 	.end = 0,
-	.flags = IORESOURCE_BUSY | IORESOURCE_MEM,
+	.flags = IORESOURCE_BUSY | IORESOURCE_SYSTEM_RAM,
 	.desc = IORES_DESC_RESERVED,
 };
 EXPORT_SYMBOL_GPL(kdmp_res);
@@ -652,37 +655,45 @@ EXPORT_SYMBOL_GPL(kdmp_phys_base);
 resource_size_t kdmp_phys_size;
 EXPORT_SYMBOL_GPL(kdmp_phys_size);
 
-static void __init reserve_panic_dump(void)
+static int __init reserve_panic_dump(void)
 {
-	unsigned long long kdmp_size = PDMP_SZ_DATA * PDMP_N_CORE;
-	unsigned long long kdmp_base;
+	phys_addr_t kdmp_base;
+	phys_addr_t kdmp_size;
+	phys_addr_t expected_size = PDMP_SZ_DATA * PDMP_N_CORE;
 	unsigned long long total_mem = memblock_phys_mem_size();
-	phys_addr_t alloc_end = min_t(phys_addr_t, memblock_end_of_DRAM(), 1ULL << 32);
 
-	kdmp_base = memblock_phys_alloc_range(kdmp_size, PMD_SIZE, 0, alloc_end);
-	if (!kdmp_base) {
+	if (!reserve_mem_find_by_name(KDMP_RESERVE_MEM_NAME, &kdmp_base, &kdmp_size)) {
 		kdmp_phys_base = 0;
 		kdmp_phys_size = 0;
-		pr_warn("kdmp reservation failed - no free range found (size=%#llx limit=%pa)\n",
-			kdmp_size, &alloc_end);
-		return;
+		pr_warn("kdmp reservation not found; set reserve_mem=%lluM:2M:%s to enable custom crashdump\n",
+			(unsigned long long)(expected_size >> 20),
+			KDMP_RESERVE_MEM_NAME);
+		return 0;
 	}
 
-	e820__range_update(kdmp_base, kdmp_size, E820_TYPE_RAM,
-				   E820_TYPE_RESERVED);
-	e820__update_table(e820_table);
+	if (kdmp_size < expected_size) {
+		kdmp_phys_base = 0;
+		kdmp_phys_size = 0;
+		pr_warn("kdmp reservation too small: start=%pa size=%pa expected=%pa\n",
+			&kdmp_base, &kdmp_size, &expected_size);
+		return 0;
+	}
 
-	pr_info("Reserving %luMB of memory at %luMB for kdmp dynamically (System RAM: %luMB)\n",
+	pr_info("Using reserve_mem region for kdmp: %luMB at %luMB (System RAM: %luMB)\n",
 		(unsigned long)(kdmp_size >> 20),
 		(unsigned long)(kdmp_base >> 20),
 		(unsigned long)(total_mem >> 20));
 	kdmp_res.start = kdmp_base;
-	kdmp_res.end = kdmp_base + kdmp_size - 1;
+	kdmp_res.end = kdmp_base + expected_size - 1;
 	kmemleak_ignore_phys(kdmp_base);
 	kdmp_phys_base = kdmp_res.start;
 	kdmp_phys_size = resource_size(&kdmp_res);
 	insert_resource(&iomem_resource, &kdmp_res);
+
+	return 0;
 }
+
+arch_initcall(reserve_panic_dump);
 #endif
 
 static struct resource standard_io_resources[] = {
@@ -1180,10 +1191,6 @@ void __init setup_arch(char **cmdline_p)
 	 * Note the host kernel TDX also requires the first 1MB being reserved.
 	 */
 	x86_platform.realmode_reserve();
-
-#if IS_ENABLED(CONFIG_CUSTOM_CRASHCUMP)
-	reserve_panic_dump();
-#endif
 
 	init_mem_mapping();
 
