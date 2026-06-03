@@ -149,6 +149,176 @@ sequenceDiagram
     end
 ```
 
+### 2-1) 標準 vmcore (ELF crash notes, 1コアのみ)
+
+```mermaid
+sequenceDiagram
+    participant PC as panic CPU (唯一のCPU)
+
+    Note over PC: 起点: CPU例外発生
+
+    alt 例外から直接 __crash_kexec する場合
+        PC->>PC: oops_end(regs)
+        PC->>PC: kexec_should_crash(current)==1
+        PC->>PC: __crash_kexec(regs)
+        PC->>PC: crash_setup_regs(&fixed_regs, regs)
+        Note over PC: 保存元は例外時 pt_regs
+        PC->>PC: machine_crash_shutdown()
+        Note over PC: 他CPUがいないため crash_smp_send_stop() は停止対象なし
+        PC->>PC: native_machine_crash_shutdown() 末尾で crash_save_cpu(&fixed_regs, panic_cpu)
+        PC->>PC: elf_core_copy_regs(&prstatus.pr_reg, fixed_regs)
+        Note over PC: crash_notes[panic_cpu] に NT_PRSTATUS を1件だけ保存
+        PC->>PC: machine_kexec(kexec_crash_image)
+
+    else panic経由で __crash_kexec する場合
+        PC->>PC: oops_end では kexec_should_crash(current)==0
+        PC->>PC: panic/vpanic へ進む
+        PC->>PC: panic.c から __crash_kexec(NULL)
+        PC->>PC: crash_setup_regs(&fixed_regs, NULL)
+        Note over PC: 保存元は panic 時点の現在文脈レジスタ
+        PC->>PC: machine_crash_shutdown()
+        Note over PC: 他CPU向け crash NMI は発生しない
+        PC->>PC: native_machine_crash_shutdown() 末尾で crash_save_cpu(&fixed_regs, panic_cpu)
+        PC->>PC: elf_core_copy_regs(&prstatus.pr_reg, fixed_regs)
+        Note over PC: crash_notes[panic_cpu] の NT_PRSTATUS のみが vmcore に入る
+        PC->>PC: machine_kexec(kexec_crash_image)
+
+    else panicしない場合
+        PC->>PC: kexec_should_crash(current)==0 かつ panic条件不成立
+        PC->>PC: oops_end復帰/タスク終了
+        Note over PC: crash_notes 保存も kexec遷移も発生しない
+    end
+```
+
+補足:
+- 1コア構成では `crash_notes[]` に有効な `NT_PRSTATUS` が 1 件だけ入り、他CPU由来の crash note は存在しない。
+- direct `__crash_kexec(regs)` では例外 `pt_regs` がそのまま保存元になり、panic 経由では `crash_setup_regs(..., NULL)` が現在文脈から保存用レジスタを組み立てる。
+- `machine_crash_shutdown()` は実行されるが、停止対象の他CPUがいないため `crash_smp_send_stop()` と `crash_nmi_callback()` による追加保存は起きない。
+
+3a) LSLSM / LSNAM
+```mermaid
+sequenceDiagram
+    participant PC as panic CPU
+    participant OC as 他CPU (IPI受信)
+    participant NC as NMI CPU
+
+    Note over PC,NC: 起点: CPU例外発生
+    PC->>PC: __die_body(regs)
+    PC->>PC: pdmp_ecxt_regs[cpu] = regs
+    Note over PC: ポインタ保存のみ (実体コピーなし)
+
+    NC->>NC: do_nmi(regs) (外部NMI/WD)
+    NC->>NC: pdmp_nmi_regs[cpu] = regs
+    NC->>NC: nmi_dump_gprs() → dump_call_nmi()
+    NC->>NC: pdmp_dump_gprs(PDMP_NMI)
+    Note over NC: inline asmで現在GPR読取<br/>→ status[NMI].x86_regs.gprs に保存
+    NC->>NC: pdmp_dump_x86(PDMP_NMI)
+    NC->>NC: dump_check_call_status(NMI) で重複ガード
+    NC->>NC: dump_ecxt_gprs: memcpy(*pdmp_nmi_regs) → status[NMI].x86_regs.excp_gprs
+    NC->>NC: dump_kstack / dump_arch_regs(CR/DR/MMX/XMM) / dump_msrs / dump_local_apic
+
+    Note over PC: CONFIG_PANIC_DUMP=y のため oops_end() から<br/>crash_kexec(regs) は呼ばれない (コンパイルアウト)
+
+    alt panicする場合
+        PC->>PC: oops_end() → panic() / vpanic()
+        PC->>PC: panic_dump_gprs() → dump_call_panic()
+        PC->>PC: pdmp_dump_gprs(PDMP_PANIC)
+        Note over PC: inline asmで現在GPR読取<br/>→ status[PANIC].x86_regs.gprs に保存
+        PC->>PC: pdmp_dump_x86(PDMP_PANIC)
+        PC->>PC: dump_check_call_status(PANIC)
+        Note over PC: pdmp_ecxt_regs[n]==NULL なら PDMP_DIR_PANIC 扱い
+        PC->>PC: dump_ecxt_gprs: memcpy(*pdmp_ecxt_regs) → status[PANIC].x86_regs.excp_gprs
+        PC->>PC: dump_kstack / dump_arch_regs / dump_msrs / dump_local_apic
+
+        PC->>OC: crash_smp_send_stop() で crash NMI送信
+        OC->>OC: pdmp_ipi_regs[cpu] = regs
+        OC->>OC: ipi_dump_gprs() → dump_call_ipi()
+        OC->>OC: pdmp_dump_gprs(PDMP_IPI)
+        Note over OC: inline asmで現在GPR読取<br/>→ status[IPI].x86_regs.gprs に保存
+        OC->>OC: pdmp_dump_x86(PDMP_IPI)
+        OC->>OC: dump_check_call_status(IPI): pdmp_nmi_regs[n]!=NULL なら -EBUSY でスキップ
+        OC->>OC: dump_ecxt_gprs: memcpy(*pdmp_ipi_regs) → status[IPI].x86_regs.excp_gprs
+        OC->>OC: dump_kstack / dump_arch_regs / dump_msrs / dump_local_apic
+
+        PC->>PC: panic notifier → pdmp_panicdump_exec()
+        Note over PC: CPU レジスタ類はすでに保存済み
+        PC->>PC: dump_pci_regs() / dump_io_regs()
+        PC->>PC: printk_tail() → printk_buf 保存
+        PC->>PC: __crash_kexec(NULL)
+        PC->>PC: crash_setup_regs(&fixed_regs, NULL)
+        Note over PC: 保存元は panic 時点の現在文脈レジスタ
+        PC->>OC: native_machine_crash_shutdown() -> crash_smp_send_stop()
+        Note over OC: 既に停止済みCPUが多く、再送は stop 処理の再確認になる
+        PC->>PC: cpu_emergency_disable_virtualization()
+        PC->>PC: cpu_emergency_stop_pt()
+        PC->>PC: ioapic_zap_locks()/clear_IO_APIC()/lapic_shutdown()
+        PC->>PC: restore_boot_irq_mode()/hpet_disable()
+        PC->>PC: x86_platform.guest.enc_kexec_begin()/finish()
+        PC->>PC: crash_save_cpu(&fixed_regs, panic_cpu)
+        Note over PC: 標準vmcore用 crash_notes[panic_cpu] に NT_PRSTATUS を保存
+        PC->>PC: wbinvd()
+        PC->>PC: machine_kexec(kexec_crash_image) → kdump kernel へ
+
+    else panicしない場合
+        PC->>PC: oops_end 復帰/タスク終了
+        Note over PC,NC: pdmp_panicdump_exec() は走らない
+    end
+
+    Note over PC,NC: dump_check_call_status() が -EBUSY を返し重複保存を抑止<br/>(NMI受信済みCPUへの IPI 等)
+```
+
+3b) CPCPU
+```mermaid
+sequenceDiagram
+    participant PC as panic CPU (コア0固定)
+
+    Note over PC: 起点: CPU例外発生
+    PC->>PC: __die_body(regs)
+    PC->>PC: pdmp_ecxt_regs = regs
+    Note over PC: 単一ポインタ保存 (配列なし)
+    Note over PC: CONFIG_PANIC_DUMP=y のため oops_end() から<br/>crash_kexec(regs) は呼ばれない (コンパイルアウト)
+
+    alt panicする場合
+        PC->>PC: oops_end() → panic()
+        PC->>PC: panic_dump_gprs() → pdmp_dump_gprs()
+        Note over PC: inline asmで現在GPR読取<br/>→ status[0].x86_regs.gprs に保存<br/>(PDMP_OK_GPRS フラグセット)
+
+        PC->>PC: panic notifier → pdmp_panicdump_exec()
+        PC->>PC: dump_ecxt_gprs()
+        Note over PC: pdmp_ecxt_regs != NULL なら<br/>memcpy → status[0].x86_regs.excp_gprs<br/>(PDMP_OK_GPRS_EXCP フラグセット)
+        PC->>PC: dump_kstack(ecxt_regsのspを使用)
+        PC->>PC: setup_header() (magic/format/timestamp/sysinfo)
+        PC->>PC: dump_arch_regs() (CR0/2/3/4, GDT/IDT/LDT/TR, DR0-7, FPU, MMX, XMM)
+        PC->>PC: dump_msrs() (CPUID, MCMSRs, MSRs)
+        PC->>PC: dump_pci_regs()
+        PC->>PC: dump_io_regs()
+        PC->>PC: printk_tail() → printk_buf 保存
+        Note over PC: nmi_dump_gprs/ipi_dump_gprs = NULL のため<br/>他CPUのレジスタは pdump 領域に保存されない
+        PC->>PC: __crash_kexec(NULL)
+        PC->>PC: crash_setup_regs(&fixed_regs, NULL)
+        Note over PC: 保存元は panic 時点の現在文脈レジスタ
+        PC->>PC: native_machine_crash_shutdown()
+        Note over PC: 単一CPUのため crash_smp_send_stop() は停止対象なし
+        PC->>PC: cpu_emergency_disable_virtualization()
+        PC->>PC: cpu_emergency_stop_pt()
+        PC->>PC: ioapic_zap_locks()/clear_IO_APIC()/lapic_shutdown()
+        PC->>PC: restore_boot_irq_mode()/hpet_disable()
+        PC->>PC: x86_platform.guest.enc_kexec_begin()/finish()
+        PC->>PC: crash_save_cpu(&fixed_regs, panic_cpu)
+        Note over PC: 標準vmcore用 crash_notes[0] に NT_PRSTATUS を保存
+        PC->>PC: wbinvd()
+        PC->>PC: machine_kexec(kexec_crash_image) → kdump kernel へ
+
+    else panicしない場合
+        PC->>PC: oops_end 復帰/タスク終了
+        Note over PC: pdmp_dump_gprs() も pdmp_panicdump_exec() も走らない
+    end
+```
+
+補足:
+- 3a/3b の `pdmp_*` 保存はカスタム追加ダンプ領域向けで、`__crash_kexec(NULL)` 以降は別系統で標準 vmcore 用 `crash_notes[]` 保存も走る。
+- `native_machine_crash_shutdown()` の末尾では panic CPU について `crash_save_cpu()` が呼ばれるため、custom dump とは別に ELF crash notes の `NT_PRSTATUS` も残る。
+
 補足:
 - kexec_should_crash は標準vmcoreの分岐条件だが、カスタム追加ダンプでも「panicを経由するか」を決めるため間接的に重要。
 - 特に direct __crash_kexec の場合、panic_dump_gprs と panic_notifier(kdmp_panicdump_exec) は走らない。

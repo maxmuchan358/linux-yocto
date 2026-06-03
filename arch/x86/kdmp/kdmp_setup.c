@@ -163,8 +163,30 @@ module_init(kdmp_module_init);
 
 static void __exit kdmp_module_exit(void)
 {
+	int i;
+
+	kdmp_panic_ready = 0;
+	kdmp_active = false;
+
+	atomic_notifier_chain_unregister(&panic_notifier_list,
+					 &kdmp_panic_notifier);
+
 	WRITE_ONCE(kdmp_event_hook, NULL);
+	panic_dump_gprs = NULL;
+	nmi_dump_gprs = NULL;
+	#ifdef CONFIG_SMP
+	ipi_dump_gprs = NULL;
+	#endif
 	kdmp_live_fini();
+
+	for (i = 0; i < PDMP_N_CORE; i++) {
+		kdmp_kdmp_slot[i] = NULL;
+		if (kdmp_buf[i]) {
+			memunmap(kdmp_buf[i]);
+			kdmp_buf[i] = NULL;
+		}
+	}
+	kdmp_kdmp_primary = NULL;
 }
 module_exit(kdmp_module_exit);
 

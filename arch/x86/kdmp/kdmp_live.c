@@ -16,7 +16,7 @@
 #include "kdmp_local.h"
 
 /* Ensure the ring fits inside rsv1 at compile time. */
-BUILD_BUG_ON(sizeof(struct kdmp_live_ring_t) > PDMP_SZ_DATA_RSV1);
+static_assert(sizeof(struct kdmp_live_ring_t) <= PDMP_SZ_DATA_RSV1);
 
 #define KDMP_LIVE_PROC_NAME "kdmp_live_ptregs"
 
