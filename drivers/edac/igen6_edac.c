@@ -198,6 +198,8 @@ static struct gen_pool *ecclog_pool;
 static char ecclog_buf[ECCLOG_POOL_SIZE];
 static struct irq_work ecclog_irq_work;
 static struct work_struct ecclog_work;
+static int ecclog_ue_mc;
+static u64 ecclog_ue;
 
 /* Compute die IDs for Elkhart Lake with IBECC */
 #define DID_EHL_SKU5	0x4514
@@ -902,6 +904,11 @@ static int ecclog_handler(void)
 		if (!ecclog)
 			continue;
 
+		if ((ecclog & ECC_ERROR_LOG_UE) && edac_mc_get_panic_on_ue()) {
+			ecclog_ue_mc = i;
+			ecclog_ue = ecclog;
+		}
+
 		if (!ecclog_gen_pool_add(i, ecclog))
 			irq_work_queue(&ecclog_irq_work);
 
@@ -911,28 +918,59 @@ static int ecclog_handler(void)
 	return n;
 }
 
+static void ecclog_prepare_error(struct decoded_addr *res, int mc, u64 ecclog)
+{
+	u64 eaddr;
+
+	memset(res, 0, sizeof(*res));
+	if (res_cfg->err_addr)
+		eaddr = res_cfg->err_addr(ecclog);
+	else
+		eaddr = ECC_ERROR_LOG_ADDR(ecclog) << ECC_ERROR_LOG_ADDR_SHIFT;
+
+	res->mc = mc;
+	res->sys_addr = res_cfg->err_addr_to_sys_addr(eaddr, res->mc);
+	res->imc_addr = res_cfg->err_addr_to_imc_addr(eaddr, res->mc);
+}
+
+static void ecclog_panic_ue_early(void)
+{
+	struct mem_ctl_info *mci;
+	struct decoded_addr res;
+
+	if (!(ecclog_ue & ECC_ERROR_LOG_UE))
+		return;
+
+	ecclog_prepare_error(&res, ecclog_ue_mc, ecclog_ue);
+	mci = igen6_pvt->imc[res.mc].mci;
+
+	igen6_mc_printk(mci, KERN_EMERG,
+			"EARLY PANIC ON UNCORRECTABLE IBECC ERROR\n");
+	igen6_mc_printk(mci, KERN_EMERG,
+			"MC %d ADDR 0x%llx SYND 0x%llx\n",
+			res.mc, res.sys_addr, ECC_ERROR_LOG_SYND(ecclog_ue));
+
+	if (!igen6_decode(&res))
+		igen6_mc_printk(mci, KERN_EMERG, "channel %d sub-channel %d\n",
+				res.channel_idx, res.sub_channel_idx);
+
+	ecclog_ue = 0;
+	panic("igen6: early panic on uncorrectable IBECC error\n");
+}
+
 static void ecclog_work_cb(struct work_struct *work)
 {
 	struct ecclog_node *node, *tmp;
 	struct mem_ctl_info *mci;
 	struct llist_node *head;
 	struct decoded_addr res;
-	u64 eaddr;
 
 	head = llist_del_all(&ecclog_llist);
 	if (!head)
 		return;
 
 	llist_for_each_entry_safe(node, tmp, head, llnode) {
-		memset(&res, 0, sizeof(res));
-		if (res_cfg->err_addr)
-			eaddr = res_cfg->err_addr(node->ecclog);
-		else
-			eaddr = ECC_ERROR_LOG_ADDR(node->ecclog) <<
-				ECC_ERROR_LOG_ADDR_SHIFT;
-		res.mc	     = node->mc;
-		res.sys_addr = res_cfg->err_addr_to_sys_addr(eaddr, res.mc);
-		res.imc_addr = res_cfg->err_addr_to_imc_addr(eaddr, res.mc);
+		ecclog_prepare_error(&res, node->mc, node->ecclog);
 
 		mci = igen6_pvt->imc[res.mc].mci;
 
@@ -953,6 +991,8 @@ static void ecclog_irq_work_cb(struct irq_work *irq_work)
 
 	for (i = 0; i < res_cfg->num_imc; i++)
 		errsts_clear(&igen6_pvt->imc[i]);
+
+	ecclog_panic_ue_early();
 
 	if (!llist_empty(&ecclog_llist))
 		schedule_work(&ecclog_work);
