@@ -512,7 +512,7 @@ int crash_load_segments(struct kimage *image)
 		pnum += 2 + CONFIG_NR_CPUS_DEFAULT;
 #if IS_ENABLED(CONFIG_CUSTOM_CRASHCUMP)
 	/* One extra PT_LOAD for the kdmp reserved buffer. */
-	if (kdmp_res.end > kdmp_res.start)
+	if (READ_ONCE(kdmp_active) && kdmp_res.end > kdmp_res.start)
 		pnum += 1;
 #endif
 
@@ -578,7 +578,7 @@ unsigned int arch_crash_get_elfcorehdr_size(void)
 		sz += CONFIG_CRASH_MAX_MEMORY_RANGES;
 #if IS_ENABLED(CONFIG_CUSTOM_CRASHCUMP)
 	/* One extra PT_LOAD for the kdmp reserved buffer. */
-	if (kdmp_res.end > kdmp_res.start)
+	if (READ_ONCE(kdmp_active) && kdmp_res.end > kdmp_res.start)
 		sz += 1;
 #endif
 	sz *= sizeof(Elf64_Phdr);
