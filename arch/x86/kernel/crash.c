@@ -285,6 +285,7 @@ static int append_kdmp_load_header(void **addr, unsigned long *sz)
 	phdr->p_type = PT_LOAD;
 	phdr->p_offset = kdmp_paddr;
 	phdr->p_paddr = kdmp_paddr;
+	phdr->p_vaddr = (unsigned long)__va(kdmp_paddr);
 	phdr->p_filesz = kdmp_size;
 	phdr->p_memsz = kdmp_size;
 	phdr->p_flags = PF_R | PF_W;
