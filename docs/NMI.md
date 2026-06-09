@@ -95,6 +95,81 @@ flowchart TD
 	Q --> R["machine_kexec で kdump kernel へ遷移"]
 ```
 
+## 2.2. 関数コールツリーベースのフローチャート
+
+制御の意味よりも、「どの関数が次にどの関数を呼ぶか」を追いやすくした図です。
+
+### 2.2.1 NMI 発生から panic 呼び出しまで
+
+```mermaid
+flowchart TD
+	A["NMI 発生"] --> B["exc_nmi(regs)"]
+	B --> C["default_do_nmi(regs)"]
+	C --> D["nmi_handle(NMI_LOCAL, regs)"]
+	D --> E{"handled"}
+	E -- yes --> Z1["return"]
+	E -- no --> F["kdmp_nmi_regs[cpu] = regs"]
+	F --> G["nmi_dump_gprs()"]
+	G --> H["x86_platform.get_nmi_reason()"]
+	H --> I{"reason"}
+	I -- SERR --> J["pci_serr_error(reason, regs)"]
+	I -- IOCHK --> K["io_check_error(reason, regs)"]
+	I -- UNKNOWN --> L["unknown_nmi_error(reason, regs)"]
+	J --> M{"panic_on_unrecovered_nmi"}
+	K --> N{"panic_on_io_nmi"}
+	L --> O{"unknown_nmi_panic or panic_on_unrecovered_nmi"}
+	M -- yes --> P["nmi_panic(regs, msg)"]
+	N -- yes --> P
+	O -- yes --> P
+	M -- no --> Z2["continue"]
+	N -- no --> Z2
+	O -- no --> Z2
+	P --> Q{"panic_try_start()"}
+	Q -- yes --> R["panic(msg)"]
+	Q -- no --> S["panic_on_other_cpu()"]
+	S -- yes --> T["nmi_panic_self_stop(regs)"]
+```
+
+### 2.2.2 panic から kdump まで
+
+```mermaid
+flowchart TD
+	A["nmi_panic(regs, msg)"] --> B["panic(msg)"]
+	B --> C["vpanic(fmt, args)"]
+	C --> D{"crash_kexec_post_notifiers"}
+	D -- false --> E["__crash_kexec(NULL)"]
+	D -- true --> F["panic_notifier_list / kmsg_dump"]
+	F --> G["__crash_kexec(NULL)"]
+	E --> H["machine_crash_shutdown(regs)"]
+	G --> H
+	H --> I["crash_smp_send_stop()"]
+	I --> J["nmi_shootdown_cpus(kdump_nmi_callback)"]
+	J --> K["crash_nmi_callback(val, regs)"]
+	K --> L["shootdown_callback(cpu, regs)"]
+	L --> M["kdump_nmi_callback(cpu, regs)"]
+	M --> N["crash_save_cpu(regs, cpu)"]
+	H --> O["machine_kexec(kexec_crash_image)"]
+```
+
+### 2.2.3 Hook C を軸に見た呼び出し位置
+
+今回の用途に引き寄せると、`Hook C` は次の call chain の途中にあります。
+
+```text
+exc_nmi(regs)
+  -> default_do_nmi(regs)
+    -> nmi_handle(NMI_LOCAL, regs)
+    -> [Hook C] kdmp_nmi_regs[cpu] = regs
+    -> x86_platform.get_nmi_reason()
+      -> pci_serr_error(reason, regs)
+      -> io_check_error(reason, regs)
+      -> unknown_nmi_error(reason, regs)
+        -> nmi_panic(regs, msg)
+          -> panic(msg)
+```
+
+このため、`Hook C` を使うと `SERR`、`IOCHK`、`UNKNOWN` の 3 経路に分かれる前に、共通の `regs` を 1 回だけ押さえられます。
+
 ## 2.5. 説明用の簡易フローチャート
 
 詳細図は上の 2 つを参照してください。ここでは説明しやすさを優先して、x86_64 の NMI 処理を大まかな 2 段階に潰しています。
