@@ -420,7 +420,7 @@ config ARCH_SUPPORTS_UPROBES
 config FIX_EARLYCON_MEM
 	def_bool y
 
-config CUSTOM_CRASHCUMP
+config CUSTOM_CRASHDUMP
 	tristate "Panic dump support"
 	depends on X86
 

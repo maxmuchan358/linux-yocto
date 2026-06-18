@@ -60,7 +60,7 @@ static int pause_on_oops;
 static int pause_on_oops_flag;
 static DEFINE_SPINLOCK(pause_on_oops_lock);
 bool crash_kexec_post_notifiers =
-	IS_ENABLED(CONFIG_CUSTOM_CRASHCUMP) && IS_ENABLED(CONFIG_KEXEC);
+	IS_ENABLED(CONFIG_CUSTOM_CRASHDUMP) && IS_ENABLED(CONFIG_KEXEC);
 int panic_on_warn __read_mostly;
 unsigned long panic_on_taint;
 bool panic_on_taint_nousertaint = false;
@@ -265,7 +265,7 @@ void __weak __noreturn panic_smp_self_stop(void)
 		cpu_relax();
 }
 
-#if IS_ENABLED(CONFIG_CUSTOM_CRASHCUMP)
+#if IS_ENABLED(CONFIG_CUSTOM_CRASHDUMP)
 void (*panic_dump_gprs)(void);
 EXPORT_SYMBOL_GPL(panic_dump_gprs);
 #endif
@@ -439,7 +439,7 @@ void vpanic(const char *fmt, va_list args)
 	int state = 0;
 	bool _crash_kexec_post_notifiers = crash_kexec_post_notifiers;
 
-#if IS_ENABLED(CONFIG_CUSTOM_CRASHCUMP)
+#if IS_ENABLED(CONFIG_CUSTOM_CRASHDUMP)
 	if (panic_dump_gprs)
 		panic_dump_gprs();
 #endif

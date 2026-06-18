@@ -23,14 +23,14 @@ void arch_crash_save_vmcoreinfo(void)
 	VMCOREINFO_NUMBER(KERNEL_IMAGE_SIZE);
 	VMCOREINFO_NUMBER(sme_mask);
 
-#if IS_ENABLED(CONFIG_CUSTOM_CRASHCUMP)
+#if IS_ENABLED(CONFIG_CUSTOM_CRASHDUMP)
 	VMCOREINFO_SYMBOL(kdmp_res);
 	VMCOREINFO_SYMBOL(kdmp_active);
 	VMCOREINFO_SYMBOL(kdmp_phys_base);
 	VMCOREINFO_SYMBOL(kdmp_phys_size);
 
 	/* These symbols live in kdmp core code and are absent from vmlinux when built as a module. */
-#if IS_BUILTIN(CONFIG_CUSTOM_CRASHCUMP)
+#if IS_BUILTIN(CONFIG_CUSTOM_CRASHDUMP)
 	VMCOREINFO_SYMBOL(kdmp_kdmp_primary);
 	VMCOREINFO_SYMBOL(kdmp_kdmp_slot);
 #endif

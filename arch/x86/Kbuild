@@ -32,7 +32,7 @@ obj-$(CONFIG_IA32_EMULATION) += ia32/
 obj-y += platform/
 obj-y += net/
 
-obj-$(CONFIG_CUSTOM_CRASHCUMP) += kdmp/
+obj-$(CONFIG_CUSTOM_CRASHDUMP) += kdmp/
 
 obj-$(CONFIG_KEXEC_FILE) += purgatory/
 

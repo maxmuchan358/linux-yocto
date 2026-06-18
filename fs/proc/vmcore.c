@@ -1480,6 +1480,10 @@ int vmcore_add_device_dump(struct vmcoredd_data *data)
 	size_t data_size;
 	int ret;
 
+	/* vmcore headers/proc entry are prepared in vmcore_init() (fs_initcall). */
+	if (!proc_vmcore || !elfcorebuf)
+		return -EOPNOTSUPP;
+
 	if (vmcoredd_disabled) {
 		pr_err_once("Device dump is disabled\n");
 		return -EINVAL;

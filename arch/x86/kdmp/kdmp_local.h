@@ -14,7 +14,7 @@
 /* panic dump function prototype. */
 int kdmp_panicdump_exec(void);
 struct kdmp_data_t *kdmp_current_dump_region(void);
-#if IS_ENABLED(CONFIG_CUSTOM_CRASHCUMP)
+#if IS_ENABLED(CONFIG_CUSTOM_CRASHDUMP)
 void dump_call_panic(void);
 void dump_call_nmi(void);
 void dump_call_ipi(void);
@@ -76,13 +76,13 @@ struct kdmp_reg_map_t {
 
 /* Dump GPRs in panic */
 extern void (*panic_dump_gprs)(void); /* kernel/panic.c */
-#if IS_ENABLED(CONFIG_CUSTOM_CRASHCUMP)
+#if IS_ENABLED(CONFIG_CUSTOM_CRASHDUMP)
 /* GPRs in exception context */
 extern void (*ipi_dump_gprs)(void);
 extern void (*nmi_dump_gprs)(void);
 #endif
 
-#if IS_ENABLED(CONFIG_CUSTOM_CRASHCUMP)
+#if IS_ENABLED(CONFIG_CUSTOM_CRASHDUMP)
 /* arch/x86/kernel/dumpstack.c */
 extern struct pt_regs *kdmp_ecxt_regs[PDMP_N_CORE];
 extern struct pt_regs *kdmp_nmi_regs[PDMP_N_CORE];

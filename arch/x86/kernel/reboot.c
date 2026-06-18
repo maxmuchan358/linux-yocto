@@ -852,7 +852,7 @@ int crashing_cpu = -1;
 
 #if defined(CONFIG_SMP)
 
-#if IS_ENABLED(CONFIG_CUSTOM_CRASHCUMP)
+#if IS_ENABLED(CONFIG_CUSTOM_CRASHDUMP)
 void (*ipi_dump_gprs)(void);
 EXPORT_SYMBOL_GPL(ipi_dump_gprs);
 #endif
@@ -877,7 +877,7 @@ static int crash_nmi_callback(unsigned int val, struct pt_regs *regs)
 		return NMI_HANDLED;
 	local_irq_disable();
 
-#if IS_ENABLED(CONFIG_CUSTOM_CRASHCUMP)
+#if IS_ENABLED(CONFIG_CUSTOM_CRASHDUMP)
 	if (cpu >= 0 && cpu < PDMP_N_CORE) {
 		kdmp_ipi_regs[cpu] = regs;
 		kdmp_capture_event(regs, KDMP_EVENT_IPI, val, 0);

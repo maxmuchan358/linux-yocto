@@ -38,7 +38,7 @@
 #include <asm/fred.h>
 #include <asm/kdmp.h>
 
-#if IS_ENABLED(CONFIG_CUSTOM_CRASHCUMP)
+#if IS_ENABLED(CONFIG_CUSTOM_CRASHDUMP)
 void (*nmi_dump_gprs)(void);
 EXPORT_SYMBOL_GPL(nmi_dump_gprs);
 #endif
@@ -363,7 +363,7 @@ static noinstr void default_do_nmi(struct pt_regs *regs)
 	unsigned char reason = 0;
 	int handled;
 	bool b2b = false;
-#if IS_ENABLED(CONFIG_CUSTOM_CRASHCUMP)
+#if IS_ENABLED(CONFIG_CUSTOM_CRASHDUMP)
 	int cpu;
 #endif
 
@@ -414,7 +414,7 @@ static noinstr void default_do_nmi(struct pt_regs *regs)
 		goto out;
 	}
 
-#if IS_ENABLED(CONFIG_CUSTOM_CRASHCUMP)
+#if IS_ENABLED(CONFIG_CUSTOM_CRASHDUMP)
 	cpu = raw_smp_processor_id();
 
 	if (cpu >= 0 && cpu < PDMP_N_CORE) {

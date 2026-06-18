@@ -50,7 +50,7 @@ extern u32 kdmp_apic_read(u32 reg);
 extern struct pt_regs *kdmp_ecxt_regs[PDMP_N_CORE];
 extern struct pt_regs *kdmp_nmi_regs[PDMP_N_CORE];
 extern struct pt_regs *kdmp_ipi_regs[PDMP_N_CORE];
-#if IS_ENABLED(CONFIG_CUSTOM_CRASHCUMP)
+#if IS_ENABLED(CONFIG_CUSTOM_CRASHDUMP)
 extern kdmp_event_hook_t kdmp_event_hook;
 /* Typed symbols to inspect custom dump slots directly in crash. */
 extern struct kdmp_data_t *kdmp_kdmp_primary;

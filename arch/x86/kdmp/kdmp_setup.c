@@ -6,6 +6,7 @@
 #include <linux/kernel.h>
 #include <linux/io.h>
 #include <linux/ioport.h>
+#include <linux/crash_dump.h>
 #include <linux/panic_notifier.h>
 #include <linux/smp.h>
 #include <asm/io.h>
@@ -60,6 +61,67 @@ EXPORT_SYMBOL_GPL(kdmp_kdmp_primary);
 struct kdmp_data_t *kdmp_kdmp_slot[PDMP_N_CORE];
 EXPORT_SYMBOL_GPL(kdmp_kdmp_slot);
 
+static struct vmcoredd_data kdmp_vmcoredd_data;
+
+static int kdmp_vmcoredd_collect(struct vmcoredd_data *data, void *buf)
+{
+	size_t offset = 0;
+	void *dst = buf;
+	int i;
+
+	if (!data || !buf)
+		return -EINVAL;
+
+	if (data->size != PDMP_SZ_DATA * PDMP_N_CORE)
+		return -EINVAL;
+
+	for (i = 0; i < PDMP_N_CORE; i++) {
+		if (!kdmp_buf[i])
+			return -ENODEV;
+
+		memcpy(dst + offset, kdmp_buf[i], PDMP_SZ_DATA);
+		offset += PDMP_SZ_DATA;
+	}
+
+	return 0;
+}
+
+static int kdmp_register_vmcoredd(void)
+{
+	int ret;
+
+	if (!is_kdump_kernel())
+		return 0;
+
+	if (kdmp_res.end <= kdmp_res.start)
+		return -ENODEV;
+
+	if (resource_size(&kdmp_res) < PDMP_SZ_DATA * PDMP_N_CORE)
+		return -EINVAL;
+
+	memset(&kdmp_vmcoredd_data, 0, sizeof(kdmp_vmcoredd_data));
+	strscpy(kdmp_vmcoredd_data.dump_name, "x86_kdmp_custom_dump",
+		sizeof(kdmp_vmcoredd_data.dump_name));
+	kdmp_vmcoredd_data.size = PDMP_SZ_DATA * PDMP_N_CORE;
+	kdmp_vmcoredd_data.vmcoredd_callback = kdmp_vmcoredd_collect;
+
+	ret = vmcore_add_device_dump(&kdmp_vmcoredd_data);
+	if (ret == -EOPNOTSUPP) {
+		pr_info("kdmp: vmcore device dump not supported; skip VMCOREDD note\n");
+		return 0;
+	}
+
+	if (ret) {
+		pr_warn("kdmp: failed to register VMCOREDD note (%d)\n", ret);
+		return ret;
+	}
+
+	pr_info("kdmp: registered VMCOREDD note '%s' size=%u\n",
+		kdmp_vmcoredd_data.dump_name, kdmp_vmcoredd_data.size);
+
+	return 0;
+}
+
 
 /**
  * initialize panic dump variables.
@@ -90,7 +152,9 @@ static int __init kdmp_initialize(void)
 			return -ENOMEM;
 		}
 		kdmp_kdmp_slot[i] = (struct kdmp_data_t *)kdmp_buf[i];
-		memset(kdmp_buf[i], 0, PDMP_SZ_DATA);
+		/* Preserve panic-kernel contents in kdump kernel for VMCOREDD export. */
+		if (!is_kdump_kernel())
+			memset(kdmp_buf[i], 0, PDMP_SZ_DATA);
 	}
 	kdmp_kdmp_primary = kdmp_kdmp_slot[0];
 
@@ -134,6 +198,7 @@ static int __init kdmp_configure(void)
 	/* configure register info. */
 	kdmp_conf_reg_info();
 	kdmp_live_init();
+	kdmp_register_vmcoredd();
 
 	WRITE_ONCE(kdmp_active, true);
 	kdmp_panic_ready = 1;
@@ -141,9 +206,16 @@ static int __init kdmp_configure(void)
 	return 0;
 }
 
+static int __init kdmp_register_vmcoredd_late(void)
+{
+	/* vmcore proc state is initialized after fs_initcall(vmcore_init). */
+	return kdmp_register_vmcoredd();
+}
+
 #ifndef MODULE
 subsys_initcall(kdmp_initialize);
 subsys_initcall_sync(kdmp_configure);
+late_initcall(kdmp_register_vmcoredd_late);
 #else
 static int __init kdmp_module_init(void)
 {

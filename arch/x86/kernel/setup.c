@@ -16,7 +16,6 @@
 #include <linux/init_ohci1394_dma.h>
 #include <linux/initrd.h>
 #include <linux/iscsi_ibft.h>
-#include <linux/kmemleak.h>
 #include <linux/mm.h>
 #include <linux/memblock.h>
 #include <linux/panic_notifier.h>
@@ -634,8 +633,18 @@ static void __init arch_reserve_crashkernel(void)
 	reserve_crashkernel_cma(cma_size);
 }
 
-#if IS_ENABLED(CONFIG_CUSTOM_CRASHCUMP)
-#define KDMP_RESERVE_MEM_NAME "kdmp"
+#if IS_ENABLED(CONFIG_CUSTOM_CRASHDUMP)
+static phys_addr_t kdmp_cmdline_phys __initdata;
+
+static int __init parse_kdmp_phys(char *arg)
+{
+	if (!arg || !*arg)
+		return -EINVAL;
+
+	kdmp_cmdline_phys = memparse(arg, NULL);
+	return 0;
+}
+early_param("kdmp_phys", parse_kdmp_phys);
 
 struct resource kdmp_res = {
 	.name = "custom crashdump",
@@ -662,14 +671,20 @@ static int __init reserve_panic_dump(void)
 	phys_addr_t expected_size = PDMP_SZ_DATA * PDMP_N_CORE;
 	unsigned long long total_mem = memblock_phys_mem_size();
 
-	if (!reserve_mem_find_by_name(KDMP_RESERVE_MEM_NAME, &kdmp_base, &kdmp_size)) {
+	if (!kdmp_cmdline_phys) {
 		kdmp_phys_base = 0;
 		kdmp_phys_size = 0;
-		pr_warn("kdmp reservation not found; set reserve_mem=%lluM:2M:%s to enable custom crashdump\n",
-			(unsigned long long)(expected_size >> 20),
-			KDMP_RESERVE_MEM_NAME);
+		pr_warn("kdmp reservation not found; set kdmp_phys=<phys> with memmap=%lluM$<phys> to enable custom crashdump\n",
+			(unsigned long long)(expected_size >> 20));
 		return 0;
 	}
+
+	kdmp_base = kdmp_cmdline_phys;
+	kdmp_size = expected_size;
+	pr_info("Using memmap-reserved region for kdmp: %luMB at %luMB (System RAM: %luMB)\n",
+		(unsigned long)(kdmp_size >> 20),
+		(unsigned long)(kdmp_base >> 20),
+		(unsigned long)(total_mem >> 20));
 
 	if (kdmp_size < expected_size) {
 		kdmp_phys_base = 0;
@@ -679,16 +694,10 @@ static int __init reserve_panic_dump(void)
 		return 0;
 	}
 
-	pr_info("Using reserve_mem region for kdmp: %luMB at %luMB (System RAM: %luMB)\n",
-		(unsigned long)(kdmp_size >> 20),
-		(unsigned long)(kdmp_base >> 20),
-		(unsigned long)(total_mem >> 20));
 	kdmp_res.start = kdmp_base;
 	kdmp_res.end = kdmp_base + expected_size - 1;
-	kmemleak_ignore_phys(kdmp_base);
 	kdmp_phys_base = kdmp_res.start;
 	kdmp_phys_size = resource_size(&kdmp_res);
-	insert_resource(&iomem_resource, &kdmp_res);
 
 	return 0;
 }

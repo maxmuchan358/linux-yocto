@@ -29,7 +29,7 @@ static int die_counter;
 
 static struct pt_regs exec_summary_regs;
 
-#if IS_ENABLED(CONFIG_CUSTOM_CRASHCUMP)
+#if IS_ENABLED(CONFIG_CUSTOM_CRASHDUMP)
 struct pt_regs *kdmp_ecxt_regs[PDMP_N_CORE];
 struct pt_regs *kdmp_nmi_regs[PDMP_N_CORE];
 struct pt_regs *kdmp_ipi_regs[PDMP_N_CORE];
@@ -442,7 +442,7 @@ NOKPROBE_SYMBOL(__die_header);
 static int __die_body(const char *str, struct pt_regs *regs, long err)
 {
 
-#if IS_ENABLED(CONFIG_CUSTOM_CRASHCUMP)
+#if IS_ENABLED(CONFIG_CUSTOM_CRASHDUMP)
 	int cpu = raw_smp_processor_id();
 
 	if (cpu >= 0 && cpu < PDMP_N_CORE)
